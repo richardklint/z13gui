@@ -150,6 +150,7 @@ type Window struct {
 	tabFocus       map[string][]focusItem
 	curTab         string
 	oskBtn         *gtk.Button
+	rotBtn         *gtk.Button
 	gameBadge      *gtk.Label
 	closeBtn       *gtk.Button
 	// Power tab.

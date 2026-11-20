@@ -181,6 +181,17 @@ func (w *Window) buildHeader() *gtk.Box {
 	text.Append(w.headerTelemetry)
 	row.Append(text)
 
+	// Quick rotation lock: the same setting as the Display tab's switch, one
+	// tap from any tab. Hidden until the probe finds kscreen-doctor.
+	w.rotBtn = iconButton("z13-rotate-symbolic", "Auto-rotate is on — tap to lock", "")
+	w.rotBtn.SetVisible(false)
+	w.rotBtn.ConnectClicked(func() {
+		locked := !w.rotRow.sw.Active()
+		w.syncRotBtn(locked) // immediate feedback; the display read-back confirms
+		w.rotRow.sw.SetActive(locked)
+	})
+	row.Append(w.rotBtn)
+
 	w.oskBtn = iconButton("z13-keyboard-symbolic", "On-screen keyboard", "")
 	w.oskBtn.SetVisible(false) // shown once the probe finds KWin's keyboard
 	w.oskBtn.ConnectClicked(func() { w.toggleKeyboard() })
@@ -592,9 +603,11 @@ func boolInt(b bool) int {
 
 func (w *Window) headerFocus() []focusItem {
 	return []focusItem{
-		{widget: w.oskBtn, row: headerRow, col: 0, section: "header",
+		{widget: w.rotBtn, row: headerRow, col: 0, section: "header",
+			onActivate: func() { w.rotBtn.Activate() }},
+		{widget: w.oskBtn, row: headerRow, col: 1, section: "header",
 			onActivate: func() { w.oskBtn.Activate() }},
-		{widget: w.closeBtn, row: headerRow, col: 1, section: "header",
+		{widget: w.closeBtn, row: headerRow, col: 2, section: "header",
 			onActivate: func() { w.hide() }},
 	}
 }

@@ -90,6 +90,7 @@ func (w *Window) maybeReprobe() {
 func (w *Window) applyCaps(c desktopCaps) {
 	w.caps = c
 	w.oskBtn.SetVisible(c.osk)
+	w.rotBtn.SetVisible(c.kscreen)
 	w.screenBrightBox.SetVisible(c.brightness)
 	w.rateBox.SetVisible(c.kscreen)
 	w.screenCard.SetVisible(c.brightness || c.kscreen)
@@ -451,6 +452,7 @@ func (w *Window) applyDisplay(d system.Display) {
 
 	locked := d.Policy == system.PolicyNever
 	w.rotRow.sw.SetActive(locked)
+	w.syncRotBtn(locked)
 	switch {
 	case locked:
 		w.rotRow.setSub("Held at " + orientationLabel(d.Rotation))
@@ -551,6 +553,20 @@ func (w *Window) setRefresh(r system.Rate) {
 		}
 	}
 	w.kscreenApply("Set refresh rate", system.DisplayWant{Policy: system.KeepPolicy, ModeID: r.ModeID})
+}
+
+// syncRotBtn shows the header rotation button's state: a padlock on an
+// accent background while locked, rotate arrows while auto-rotating.
+func (w *Window) syncRotBtn(locked bool) {
+	if locked {
+		w.rotBtn.SetIconName("z13-lock-symbolic")
+		w.rotBtn.SetTooltipText("Rotation locked — tap to unlock")
+		w.rotBtn.AddCSSClass("active")
+	} else {
+		w.rotBtn.SetIconName("z13-rotate-symbolic")
+		w.rotBtn.SetTooltipText("Auto-rotate is on — tap to lock")
+		w.rotBtn.RemoveCSSClass("active")
+	}
 }
 
 func (w *Window) setRotationLock(on bool) {

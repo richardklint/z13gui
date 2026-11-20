@@ -41,6 +41,13 @@ var drawerIcons = map[string]string{
 	"z13-keyboard-symbolic": "M0.5 3.5h15v9h-15zM2 5v6h12V5z" +
 		"M3 6h1.5v1.5H3zM5.5 6H7v1.5H5.5zM8 6h1.5v1.5H8zM10.5 6H12v1.5h-1.5z" +
 		"M4.5 8.5h7V10h-7z",
+	// Two curved arrows: auto-rotate on.
+	"z13-rotate-symbolic": "M2.49 7.03A5.6 5.6 0 0 1 12.85 5.20L11.46 6.00A4.0 4.0 0 0 0 4.06 7.31z" +
+		"M14.24 4.40L12.80 7.83L10.08 6.80z" +
+		"M13.51 8.97A5.6 5.6 0 0 1 3.15 10.80L4.54 10.00A4.0 4.0 0 0 0 11.94 8.69z" +
+		"M1.76 11.60L3.20 8.17L5.92 9.20z",
+	// Padlock: rotation locked.
+	"z13-lock-symbolic": "M3.5 7h9v7.5h-9zM5 7V5a3 3 0 0 1 6 0v2h-1.5V5a1.5 1.5 0 0 0-3 0v2z",
 	// Cross.
 	"z13-close-symbolic": "M3.4 2.3 8 6.9l4.6-4.6 1.1 1.1L9.1 8l4.6 4.6-1.1 1.1L8 9.1l-4.6 4.6-1.1-1.1L6.9 8 2.3 3.4z",
 	// Chevron pointing right.
