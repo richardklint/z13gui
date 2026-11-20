@@ -1026,10 +1026,9 @@ func (w *Window) startTelemetryPolling() {
 		}
 		w.telemetryBusy = true
 		sens := w.sens
-		gamemode := w.caps.gamemode
 		go func() {
 			ok, state, err := api.SendGetState()
-			readings := readPowerReadings(sens, gamemode)
+			readings := readPowerReadings(sens)
 			glib.IdleAdd(func() {
 				// Cleared unconditionally, including on the failure paths below:
 				// leaving it set would stop the poll for good.

@@ -38,7 +38,7 @@ internal/gui/
   tabs.go                       Tabbed main view: header, Power/Lighting/Display pages, tab bar,
                                 switchRow (whole-row toggle), per-tab focus grids
   features.go                   Behaviour for the redesign: GameMode badge, charge limit + one-off top-up,
-                                power card/graph, brightness, refresh rate, rotation, on-screen keyboard
+                                power card, brightness, refresh rate, rotation, on-screen keyboard
   sysctl.go                     kscreen-doctor / busctl / sysfs I/O (goroutine-safe, no widgets)
   icons.go                      Bundled filled symbolic SVG icons, added to the icon theme search path
   redesign.css                  Sizes for the tabbed view; px scaled by uiscale.ScaleCSS under gamescope
@@ -78,8 +78,8 @@ internal/theme/
   css.go                        @define-color generation from a Colors value
   config.go                     Config persistence (selected theme/accent)
   *_test.go                     Theme parsing, CSS generation, and built-in completeness tests
-internal/system/                Display (kscreen JSON), battery uevent math, power History ring +
-                                graph mapping, charge-limit decisions, prefs.conf (separate from config.toml)
+internal/system/                Display (kscreen JSON), battery uevent math, charge-limit and reprobe
+                                decisions, colour scheme, step snapping, prefs.conf (separate from config.toml)
 internal/power/                 Limits value: TDP/fan bounds + rules (mirrors z13ctl internal/cli)
 internal/daemon/                Err(handled, err): collapses an api result pair into one error
 internal/focusgrid/             Gamepad focus navigation: row/col/section index math
@@ -116,8 +116,10 @@ gone; overdrive/boot sound/theme live on the Display tab.
   `org.kde.ScreenBrightness` (brightness), KWin `VirtualKeyboard` (OSK), the
   Feral GameMode (`ClientCount`, header badge). All run through `busctl`/`kscreen-doctor`
   in goroutines with a 5s timeout.
-- APU power is sampled once a second for the life of the process into a
-  `system.History`, so the graph has a minute of data on open.
+- Nothing in the redesign runs while the drawer is closed: APU power, temps
+  and battery are read on the existing 1s telemetry tick while it is open.
+  The GameMode badge follows GameMode's PropertiesChanged signal (plus one
+  read per show), not a poll.
 - Charge limit off = daemon limit 100. With "re-enable after unplugging", the
   power-source event (and startup) restores `prefs.ChargeLimit` once AC is
   offline; `PendingRestore` is persisted in prefs.conf so a restart mid-charge

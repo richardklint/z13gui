@@ -3,7 +3,6 @@
 package system
 
 import (
-	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -174,61 +173,6 @@ func TestFormatWatts(t *testing.T) {
 	}
 	if FormatWatts(27.42) != "27" {
 		t.Errorf("FormatWatts(27.42) = %q", FormatWatts(27.42))
-	}
-}
-
-func TestHistory(t *testing.T) {
-	h := NewHistory(3)
-	if len(h.Snapshot()) != 0 {
-		t.Fatal("new history should be empty")
-	}
-	h.Add(1)
-	h.Add(2)
-	if got := h.Snapshot(); !reflect.DeepEqual(got, []float64{1, 2}) {
-		t.Errorf("partial = %v", got)
-	}
-	h.Add(3)
-	h.Add(4)
-	if got := h.Snapshot(); !reflect.DeepEqual(got, []float64{2, 3, 4}) {
-		t.Errorf("wrapped = %v, want oldest first", got)
-	}
-	if NewHistory(0).Cap() != 2 {
-		t.Error("capacity floor is 2")
-	}
-}
-
-func TestGraphScale(t *testing.T) {
-	cases := []struct {
-		in   []float64
-		want float64
-	}{
-		{nil, 30},                 // floor when empty
-		{[]float64{12, 18}, 30},   // below floor
-		{[]float64{31}, 40},       // next step up
-		{[]float64{56.2, 40}, 60}, // gaming
-		{[]float64{60}, 60},       // exactly on a step
-	}
-	for _, c := range cases {
-		if got := GraphScale(c.in, 30, 10); got != c.want {
-			t.Errorf("GraphScale(%v) = %v, want %v", c.in, got, c.want)
-		}
-	}
-}
-
-func TestGraphPoints(t *testing.T) {
-	pts := GraphPoints([]float64{0, 50, 100}, 5, 100, 50, 100)
-	// Three samples in a five-wide history start at slot 2 (right-aligned).
-	want := []Point{{50, 50}, {75, 25}, {100, 0}}
-	for i := range want {
-		if math.Abs(pts[i].X-want[i].X) > 1e-9 || math.Abs(pts[i].Y-want[i].Y) > 1e-9 {
-			t.Errorf("pt %d = %+v, want %+v", i, pts[i], want[i])
-		}
-	}
-	if clamp := GraphPoints([]float64{-5, 500}, 2, 10, 10, 100); clamp[0].Y != 10 || clamp[1].Y != 0 {
-		t.Errorf("values should clamp to the box: %+v", clamp)
-	}
-	if GraphPoints(nil, 5, 1, 1, 1) != nil || GraphPoints([]float64{1}, 5, 1, 1, 0) != nil {
-		t.Error("degenerate input should yield nil")
 	}
 }
 

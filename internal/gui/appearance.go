@@ -223,3 +223,52 @@ func (w *Window) syncThemePicker() {
 		w.setActiveAccentDot(dot)
 	}
 }
+
+// --- GameMode badge ---
+
+const (
+	gameModeDest  = "com.feralinteractive.GameMode"
+	gameModePath  = "/com/feralinteractive/GameMode"
+	gameModeIface = "com.feralinteractive.GameMode"
+)
+
+// watchGameMode keeps the header badge in step with Feral GameMode through its
+// PropertiesChanged signal (ClientCount is emits-change), so nothing polls.
+// One read at startup and one per show (refreshGameMode) cover a daemon that
+// started, restarted or was missed while the signal could not be delivered.
+func (w *Window) watchGameMode() {
+	w.refreshGameMode()
+	if w.sessionBus == nil {
+		return
+	}
+	w.sessionBus.SignalSubscribe(gameModeDest, "org.freedesktop.DBus.Properties", "PropertiesChanged",
+		gameModePath, gameModeIface, gio.DBusSignalFlagsNone,
+		func(_ *gio.DBusConnection, _, _, _, _ string, params *glib.Variant) {
+			// PropertiesChanged(s interface, a{sv} changed, as invalidated)
+			if params == nil || params.NChildren() < 2 {
+				return
+			}
+			changed := params.ChildValue(1)
+			for i := uint(0); i < changed.NChildren(); i++ {
+				entry := changed.ChildValue(i)
+				if entry.ChildValue(0).String() != "ClientCount" {
+					continue
+				}
+				v := entry.ChildValue(1)
+				if v.TypeString() == "v" {
+					v = v.Variant()
+				}
+				if v.TypeString() == "i" {
+					w.gameBadge.SetVisible(v.Int32() > 0)
+				}
+			}
+		})
+}
+
+// refreshGameMode reads ClientCount once, off the GTK thread.
+func (w *Window) refreshGameMode() {
+	go func() {
+		n, err := gameModeClients()
+		glib.IdleAdd(func() { w.gameBadge.SetVisible(err == nil && n > 0) })
+	}()
+}

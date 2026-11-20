@@ -142,7 +142,6 @@ type Window struct {
 	capsProbedOnce bool
 	capsProbedAt   time.Time
 	sens           sensors
-	powerHist      *system.History
 	lastBatt       *system.Battery
 	tabStack       *gtk.Stack
 	tabBtns        map[string]*gtk.Button
@@ -155,7 +154,6 @@ type Window struct {
 	closeBtn       *gtk.Button
 	// Power tab.
 	powerValue     *gtk.Label
-	powerGraph     *gtk.DrawingArea
 	cpuTempLbl     *gtk.Label
 	gpuTempLbl     *gtk.Label
 	fanLbl         *gtk.Label
@@ -305,7 +303,6 @@ func New(app *gtk.Application) *Window {
 		prefs:       system.LoadPrefs(),
 		sysDark:     true,
 		sens:        findSensors(),
-		powerHist:   system.NewHistory(powerHistorySamples),
 		tabBtns:     make(map[string]*gtk.Button),
 		tabScrolls:  make(map[string]*gtk.ScrolledWindow),
 		limitBtns:   make(map[int]*gtk.Button),
@@ -363,7 +360,7 @@ func New(app *gtk.Application) *Window {
 	w.syncing = false
 
 	go w.subscribeLoop()
-	startPowerSampler(w.sens, w.powerHist)
+	w.watchGameMode()
 	w.probeDesktop()
 	w.checkChargeRestore()
 
@@ -466,6 +463,7 @@ func (w *Window) show() {
 	}
 	w.backend.Show()
 	w.startTelemetryPolling()
+	w.refreshGameMode()
 	w.maybeReprobe()
 	w.refreshDesktop()
 }
@@ -764,9 +762,6 @@ func (w *Window) renderTheme(id, accentID string) {
 	gtk.StyleContextAddProviderForDisplay(display, w.themeProvider, gtk.STYLE_PROVIDER_PRIORITY_USER)
 	w.redrawFanCurve()
 	w.updateThemeName()
-	if w.powerGraph != nil {
-		w.powerGraph.QueueDraw()
-	}
 	slog.Info("theme changed", "id", id, "accent", accentID)
 }
 
@@ -798,9 +793,6 @@ func (w *Window) applyCustomAccent(accentID string) {
 	theme.SaveAppConfig(cfg)
 	w.redrawFanCurve()
 	w.updateThemeName()
-	if w.powerGraph != nil {
-		w.powerGraph.QueueDraw()
-	}
 }
 
 // redrawFanCurve repaints the fan curve chart after a theme change. It is drawn

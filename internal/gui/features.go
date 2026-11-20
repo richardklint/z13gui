@@ -2,8 +2,8 @@
 
 package gui
 
-// features.go — behaviour behind the redesign's controls: the GameMode badge,
-// the charge-limit switch and its one-off top-up, the power card, and the
+// features.go — behaviour behind the redesign's controls: the charge-limit
+// switch and its one-off top-up, the power card, and the
 // Display tab (brightness, refresh rate, rotation, on-screen keyboard).
 //
 // Follows the package rules: widget reads on the GTK thread, every daemon call
@@ -17,37 +17,14 @@ import (
 	"time"
 
 	"github.com/dahui/z13ctl/api"
-	"github.com/dahui/z13gui/internal/colorconv"
 	"github.com/dahui/z13gui/internal/daemon"
 	"github.com/dahui/z13gui/internal/system"
 	"github.com/dahui/z13gui/internal/theme"
-	"github.com/diamondburned/gotk4/pkg/cairo"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
-// powerHistorySamples is one minute at the 1 s sample rate.
-const powerHistorySamples = 60
-
 func (w *Window) savePrefs() { system.SavePrefs(w.prefs) }
-
-// startPowerSampler records APU power once a second for the life of the
-// process, so the graph already holds a minute of history when the drawer
-// opens. One sysfs read per second; the goroutine touches only its own copies.
-func startPowerSampler(s sensors, h *system.History) {
-	if s.apuPower == "" {
-		return
-	}
-	go func() {
-		t := time.NewTicker(time.Second)
-		defer t.Stop()
-		for range t.C {
-			if v, ok := s.readAPUWatts(); ok {
-				h.Add(v)
-			}
-		}
-	}()
-}
 
 // capsReprobeEvery throttles re-probing for integrations still missing. On a
 // desktop that will never have them (GNOME, gamescope) it bounds the cost to a
@@ -74,7 +51,7 @@ func (w *Window) probeDesktop() {
 				return
 			}
 			slog.Info("desktop integrations", "kscreen", c.kscreen, "brightness", c.brightness,
-				"osk", c.osk, "gamemode", c.gamemode)
+				"osk", c.osk)
 			w.applyCaps(c)
 		})
 	}()
@@ -106,7 +83,7 @@ func (w *Window) refreshDesktop() {
 	c := w.caps
 	sens := w.sens
 	go func() {
-		r := readPowerReadings(sens, c.gamemode)
+		r := readPowerReadings(sens)
 		glib.IdleAdd(func() { w.applyPowerReadings(r) })
 	}()
 	if c.kscreen {
@@ -141,15 +118,13 @@ type powerReadings struct {
 	battOK   bool
 	acOnline bool
 	acKnown  bool
-	gameMode bool // Feral GameMode has a game registered
+	apuWatts float64
+	apuOK    bool
 }
 
-func readPowerReadings(s sensors, gamemode bool) powerReadings {
+func readPowerReadings(s sensors) powerReadings {
 	var r powerReadings
-	if gamemode {
-		n, err := gameModeClients()
-		r.gameMode = err == nil && n > 0
-	}
+	r.apuWatts, r.apuOK = s.readAPUWatts()
 	r.gpuTemp, r.gpuOK = s.readGPUTemp()
 	r.batt, r.battOK = s.readBattery()
 	r.acOnline, r.acKnown = s.acOnline()
@@ -161,13 +136,9 @@ func (w *Window) applyPowerReadings(r powerReadings) {
 		w.lastBatt = &r.batt
 	}
 	w.updateHeader()
-	w.gameBadge.SetVisible(r.gameMode)
-
-	samples := w.powerHist.Snapshot()
-	if len(samples) > 0 {
-		w.powerValue.SetLabel(system.FormatWatts(samples[len(samples)-1]))
+	if r.apuOK {
+		w.powerValue.SetLabel(system.FormatWatts(r.apuWatts))
 	}
-	w.powerGraph.QueueDraw()
 
 	if w.state != nil {
 		w.cpuTempLbl.SetMarkup(fmt.Sprintf("CPU <b>%d°C</b>", w.state.Temperature))
@@ -207,67 +178,6 @@ func (w *Window) updateHeader() {
 		s += fmt.Sprintf("%d%%", w.lastBatt.Capacity)
 	}
 	w.headerTelemetry.SetLabel(s)
-}
-
-// newPowerGraph is the 60 s APU power sparkline. Painted with Cairo, so like
-// the fan curve it applies the backend scale and the theme accent itself.
-func (w *Window) newPowerGraph() *gtk.DrawingArea {
-	da := gtk.NewDrawingArea()
-	da.AddCSSClass("power-graph")
-	da.SetDrawFunc(func(_ *gtk.DrawingArea, cr *cairo.Context, width, height int) {
-		s := 1.0
-		if w.backend != nil && w.backend.Scale() > 0 {
-			s = w.backend.Scale()
-		}
-		wd, ht := float64(width), float64(height)
-		ar, ag, ab, ok := colorconv.RGB(w.colors.Accent)
-		if !ok {
-			ar, ag, ab, _ = colorconv.RGB(theme.DefaultColors.Accent)
-		}
-		br, bg, bb, ok := colorconv.RGB(w.colors.Border)
-		if !ok {
-			br, bg, bb = 0.3, 0.3, 0.3
-		}
-
-		// Midline, dashed.
-		cr.SetSourceRGBA(br, bg, bb, 1)
-		cr.SetLineWidth(1 * s)
-		cr.SetDash([]float64{3 * s, 4 * s}, 0)
-		cr.MoveTo(0, ht/2)
-		cr.LineTo(wd, ht/2)
-		cr.Stroke()
-		cr.SetDash(nil, 0)
-
-		samples := w.powerHist.Snapshot()
-		max := system.GraphScale(samples, 30, 10)
-		pad := 2 * s // keep the 2px line inside the box at the extremes
-		pts := system.GraphPoints(samples, w.powerHist.Cap(), wd, ht-2*pad, max)
-		if len(pts) < 2 {
-			return
-		}
-		for i := range pts {
-			pts[i].Y += pad
-		}
-
-		cr.SetSourceRGBA(ar, ag, ab, 0.18)
-		cr.MoveTo(pts[0].X, ht)
-		for _, p := range pts {
-			cr.LineTo(p.X, p.Y)
-		}
-		cr.LineTo(pts[len(pts)-1].X, ht)
-		cr.ClosePath()
-		cr.Fill()
-
-		cr.SetSourceRGBA(ar, ag, ab, 1)
-		cr.SetLineWidth(2 * s)
-		cr.SetLineJoin(cairo.LineJoinRound)
-		cr.MoveTo(pts[0].X, pts[0].Y)
-		for _, p := range pts[1:] {
-			cr.LineTo(p.X, p.Y)
-		}
-		cr.Stroke()
-	})
-	return da
 }
 
 // --- charge limit ---

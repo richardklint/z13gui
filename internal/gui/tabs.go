@@ -256,9 +256,6 @@ func (w *Window) selectTab(t string) {
 		w.prefs.Tab = t
 		w.savePrefs()
 	}
-	if t == tabPower && w.powerGraph != nil {
-		w.powerGraph.QueueDraw()
-	}
 }
 
 // cycleTab moves to the next (dir > 0) or previous tab, wrapping.
@@ -296,7 +293,7 @@ func (w *Window) buildPowerCard() *gtk.Box {
 	unit.AddCSSClass("power-unit")
 	unit.SetVAlign(gtk.AlignBaseline)
 	w.powerValue.SetVAlign(gtk.AlignBaseline)
-	caption := gtk.NewLabel("APU power · 60 s")
+	caption := gtk.NewLabel("APU power")
 	caption.AddCSSClass("row-sub")
 	caption.SetHExpand(true)
 	caption.SetXAlign(1)
@@ -305,9 +302,6 @@ func (w *Window) buildPowerCard() *gtk.Box {
 	top.Append(unit)
 	top.Append(caption)
 	c.Append(top)
-
-	w.powerGraph = w.newPowerGraph()
-	c.Append(w.powerGraph)
 
 	stats := gtk.NewBox(gtk.OrientationHorizontal, 0)
 	stats.SetHomogeneous(true)

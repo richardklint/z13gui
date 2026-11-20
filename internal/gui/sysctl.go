@@ -61,13 +61,12 @@ type desktopCaps struct {
 	kscreen    bool // kscreen-doctor present and answering
 	brightness bool // org.kde.ScreenBrightness display0 answering
 	osk        bool // KWin VirtualKeyboard available
-	gamemode   bool // Feral GameMode daemon answering
 }
 
 // complete reports whether every integration has been found, i.e. there is
 // nothing left worth probing for.
 func (c desktopCaps) complete() bool {
-	return c.kscreen && c.brightness && c.osk && c.gamemode
+	return c.kscreen && c.brightness && c.osk
 }
 
 // probeDesktopCaps checks for each integration not already in have. A found
@@ -90,10 +89,6 @@ func probeDesktopCaps(have desktopCaps) desktopCaps {
 		if !c.osk {
 			v, err := busctlGet("org.kde.KWin", "/VirtualKeyboard", "org.kde.kwin.VirtualKeyboard", "available")
 			c.osk = err == nil && v == "b true"
-		}
-		if !c.gamemode {
-			_, err := gameModeClients()
-			c.gamemode = err == nil
 		}
 	}
 	return c
