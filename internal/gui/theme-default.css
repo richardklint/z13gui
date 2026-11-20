@@ -396,15 +396,6 @@ window.z13-drawer-window {
 .tab-bar-btn.active {
     color: @z13-text;
 }
-.step-btn {
-    background: mix(@z13-surface-alt, @z13-text, 0.08);
-    color: @z13-text;
-    border: 1px solid mix(@z13-border, @z13-text, 0.25);
-    box-shadow: none;
-}
-.step-btn:hover {
-    background: mix(@z13-surface-alt, @z13-text, 0.16);
-}
 .header-btn.active {
     background: @z13-accent;
     color: #ffffff;

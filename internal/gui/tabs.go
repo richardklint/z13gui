@@ -446,23 +446,15 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	w.screenBrightLbl.AddCSSClass("row-value")
 	bHead.Append(bTitle)
 	bHead.Append(w.screenBrightLbl)
-	w.screenBright = gtk.NewScaleWithRange(gtk.OrientationHorizontal, 1, 100, 1)
+	w.screenBright = gtk.NewScaleWithRange(gtk.OrientationHorizontal, brightnessStep, 100, brightnessStep)
 	w.screenBright.SetDrawValue(false)
 	w.screenBright.SetFocusable(false)
 	w.screenBright.AddCSSClass("big-scale")
 	w.screenBright.ConnectValueChanged(w.onScreenBrightness)
 	w.screenBright.SetHExpand(true)
 	w.screenBright.SetVAlign(gtk.AlignCenter)
-	w.brightDown = stepButton("−", "Brightness down 5%")
-	w.brightDown.ConnectClicked(func() { w.stepScreenBrightness(-1) })
-	w.brightUp = stepButton("+", "Brightness up 5%")
-	w.brightUp.ConnectClicked(func() { w.stepScreenBrightness(1) })
-	slider := gtk.NewBox(gtk.OrientationHorizontal, 10)
-	slider.Append(w.brightDown)
-	slider.Append(w.screenBright)
-	slider.Append(w.brightUp)
 	bright.Append(bHead)
-	bright.Append(slider)
+	bright.Append(w.screenBright)
 	w.screenBrightBox = bright
 
 	rate := gtk.NewBox(gtk.OrientationVertical, 8)
@@ -562,21 +554,8 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	return page
 }
 
-// brightnessStep is the grid the −/+ buttons snap to, in percent, and
-// brightnessMinMove the smallest change a tap makes (so 9 → 15, not 10).
-const (
-	brightnessStep    = 5
-	brightnessMinMove = 2
-)
-
-// stepButton is a square −/+ button beside a slider.
-func stepButton(label, tooltip string) *gtk.Button {
-	b := gtk.NewButtonWithLabel(label)
-	b.SetTooltipText(tooltip)
-	b.AddCSSClass("step-btn")
-	b.SetVAlign(gtk.AlignCenter)
-	return b
-}
+// brightnessStep is the grid the screen brightness slider snaps to, in percent.
+const brightnessStep = 5
 
 // centeredLabel is a label that stays centred in whatever button holds it.
 func centeredLabel(text string) *gtk.Label {
@@ -723,14 +702,8 @@ func (w *Window) displayFocus() []focusItem {
 	screenVis := visibleFn(w.screenCard)
 	brightVis := func() bool { return screenVis() && w.screenBrightBox.IsVisible() }
 	sl, sr, sg, ss := scaleAdjust(w.screenBright, brightnessStep)
-	items = append(items,
-		focusItem{widget: w.brightDown, row: 1, col: 0, section: "screen", isVisible: brightVis,
-			onActivate: func() { w.brightDown.Activate() }},
-		focusItem{widget: w.screenBright, row: 1, col: 1, section: "screen", isVisible: brightVis,
-			editable: true, onLeft: sl, onRight: sr, getValue: sg, setValue: ss},
-		focusItem{widget: w.brightUp, row: 1, col: 2, section: "screen", isVisible: brightVis,
-			onActivate: func() { w.brightUp.Activate() }},
-	)
+	items = append(items, focusItem{widget: w.screenBright, row: 1, col: 0, section: "screen",
+		isVisible: brightVis, editable: true, onLeft: sl, onRight: sr, getValue: sg, setValue: ss})
 	for i, r := range w.rates {
 		btn := w.rateBtns[r.ModeID]
 		items = append(items, focusItem{

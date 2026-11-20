@@ -173,8 +173,6 @@ type Window struct {
 	screenBrightBox *gtk.Box
 	screenBright    *gtk.Scale
 	screenBrightLbl *gtk.Label
-	brightDown      *gtk.Button
-	brightUp        *gtk.Button
 	brightMax       int
 	brightTimer     *time.Timer
 	rateBox         *gtk.Box

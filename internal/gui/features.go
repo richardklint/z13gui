@@ -98,10 +98,11 @@ func (w *Window) refreshDesktop() {
 			}
 			glib.IdleAdd(func() {
 				w.brightMax = max
+				pct := float64(cur) * 100 / float64(max)
 				w.syncing = true
-				w.screenBright.SetValue(float64(cur) * 100 / float64(max))
+				w.screenBright.SetValue(pct) // clamps below 5%; the label keeps the truth
 				w.syncing = false
-				w.screenBrightLbl.SetLabel(fmt.Sprintf("%d%%", int(w.screenBright.Value())))
+				w.screenBrightLbl.SetLabel(fmt.Sprintf("%d%%", int(pct+0.5)))
 			})
 		}()
 	}
@@ -313,8 +314,18 @@ func (w *Window) toggleKeyboard() {
 
 // --- display ---
 
+// onScreenBrightness snaps a drag to the nearest 5% mark and applies it,
+// debounced. A value read back from the desktop (e.g. 14% set by the brightness
+// keys) is shown as is — sync runs under w.syncing and is not snapped.
 func (w *Window) onScreenBrightness() {
-	pct := int(w.screenBright.Value())
+	if !w.syncing {
+		v := w.screenBright.Value()
+		if snapped := system.SnapTo(v, brightnessStep, brightnessStep, 100); snapped != v {
+			w.screenBright.SetValue(snapped) // re-enters with the snapped value
+			return
+		}
+	}
+	pct := int(w.screenBright.Value() + 0.5)
 	w.screenBrightLbl.SetLabel(fmt.Sprintf("%d%%", pct))
 	if w.syncing || w.brightMax <= 0 {
 		return
@@ -329,14 +340,6 @@ func (w *Window) onScreenBrightness() {
 			w.reportError("Set brightness", err)
 		}
 	})
-}
-
-// stepScreenBrightness moves the slider to the next multiple of
-// brightnessStep in direction dir (see system.SnapStep); the slider's own
-// handler debounces and applies it, so a run of taps sends one change.
-func (w *Window) stepScreenBrightness(dir int) {
-	adj := w.screenBright.Adjustment()
-	adj.SetValue(system.SnapStep(adj.Value(), brightnessStep, brightnessMinMove, dir, adj.Lower(), adj.Upper()))
 }
 
 func (w *Window) rereadDisplay() {
