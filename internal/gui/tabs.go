@@ -419,15 +419,16 @@ func (w *Window) buildLightingPage() *gtk.Box {
 var orientations = []struct {
 	rot   int
 	label string
+	class string // rotates the orientation icon to match
 }{
-	{system.RotationNormal, "Landscape"},
-	{system.RotationLeft, "Portrait"},
-	{system.RotationInverted, "Landscape ↻"},
-	{system.RotationRight, "Portrait ↻"},
+	{system.RotationNormal, "Landscape", "orient-0"},
+	{system.RotationLeft, "Portrait", "orient-270"},
+	{system.RotationInverted, "Landscape (flipped)", "orient-180"},
+	{system.RotationRight, "Portrait (flipped)", "orient-90"},
 }
 
 var rotatePolicies = []struct{ arg, label string }{
-	{"inTabletMode", "Tablet mode"},
+	{"inTabletMode", "Tablet"},
 	{"always", "Always"},
 }
 
@@ -457,14 +458,18 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	bright.Append(w.screenBright)
 	w.screenBrightBox = bright
 
-	rate := gtk.NewBox(gtk.OrientationVertical, 8)
+	// One line: title on the left, the rate buttons on the right.
+	rate := gtk.NewBox(gtk.OrientationHorizontal, 8)
 	rate.AddCSSClass("card-block")
 	rTitle := gtk.NewLabel("Refresh rate")
 	rTitle.AddCSSClass("row-title")
 	rTitle.SetXAlign(0)
-	w.rateRow = gtk.NewBox(gtk.OrientationHorizontal, 8)
+	rTitle.SetHExpand(true)
+	w.rateRow = gtk.NewBox(gtk.OrientationHorizontal, 6)
 	w.rateRow.AddCSSClass("btn-group")
+	w.rateRow.AddCSSClass("compact")
 	w.rateRow.SetHomogeneous(true)
+	w.rateRow.SetVAlign(gtk.AlignCenter)
 	rate.Append(rTitle)
 	rate.Append(w.rateRow)
 	w.rateBox = rate
@@ -476,37 +481,47 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	// Rotation.
 	w.rotRow = w.newSwitchRow("Rotation lock", "", w.setRotationLock)
 
-	orient := gtk.NewGrid()
-	orient.SetColumnSpacing(8)
-	orient.SetRowSpacing(8)
-	orient.SetColumnHomogeneous(true)
+	// Orientations: one row of icon buttons. A single screen-with-up-arrow
+	// icon, rotated in CSS (.orient-*), shows each orientation; the tooltip
+	// names it.
+	orient := gtk.NewBox(gtk.OrientationHorizontal, 6)
+	orient.SetHomogeneous(true)
 	orient.AddCSSClass("btn-group")
-	for i, o := range orientations {
+	for _, o := range orientations {
 		o := o
-		b := gtk.NewButtonWithLabel(o.label)
+		b := gtk.NewButtonFromIconName("z13-orient-symbolic")
+		b.SetTooltipText(o.label)
 		b.AddCSSClass("orient-btn")
+		b.AddCSSClass(o.class)
 		b.ConnectClicked(func() { w.setOrientation(o.rot) })
 		w.orientBtns[o.rot] = b
-		orient.Attach(b, i%2, i/2, 1, 1)
+		orient.Append(b)
 	}
-	polLabel := gtk.NewLabel("Auto-rotate when unlocked")
-	polLabel.SetXAlign(0)
-	polLabel.AddCSSClass("row-sub")
+	// Auto-rotate policy on one line: label left, choices right.
 	pol := gtk.NewBox(gtk.OrientationHorizontal, 8)
-	pol.SetHomogeneous(true)
-	pol.AddCSSClass("btn-group")
+	polLabel := gtk.NewLabel("Auto-rotate")
+	polLabel.SetXAlign(0)
+	polLabel.SetHExpand(true)
+	polLabel.AddCSSClass("row-sub")
+	polBtns := gtk.NewBox(gtk.OrientationHorizontal, 6)
+	polBtns.SetHomogeneous(true)
+	polBtns.AddCSSClass("btn-group")
+	polBtns.AddCSSClass("compact")
+	polBtns.SetVAlign(gtk.AlignCenter)
 	for _, p := range rotatePolicies {
 		p := p
 		b := gtk.NewButtonWithLabel(p.label)
+		b.SetTooltipText("Auto-rotate when unlocked: " + p.label)
 		b.ConnectClicked(func() { w.setRotatePolicy(p.arg) })
 		w.policyBtns[p.arg] = b
-		pol.Append(b)
+		polBtns.Append(b)
 	}
-	rotBody := gtk.NewBox(gtk.OrientationVertical, 8)
+	pol.Append(polLabel)
+	pol.Append(polBtns)
+	rotBody := gtk.NewBox(gtk.OrientationVertical, 10)
 	rotBody.AddCSSClass("card-block")
 	rotBody.AddCSSClass("card-block-tight")
 	rotBody.Append(orient)
-	rotBody.Append(polLabel)
 	rotBody.Append(pol)
 
 	rotTop := gtk.NewBox(gtk.OrientationVertical, 0)
@@ -717,14 +732,14 @@ func (w *Window) displayFocus() []focusItem {
 	for i, o := range orientations {
 		btn := w.orientBtns[o.rot]
 		items = append(items, focusItem{
-			widget: btn, row: 4 + i/2, col: i % 2, section: "rotation",
+			widget: btn, row: 4, col: i, section: "rotation",
 			isVisible: rotVis, onActivate: func() { btn.Activate() },
 		})
 	}
 	for i, p := range rotatePolicies {
 		btn := w.policyBtns[p.arg]
 		items = append(items, focusItem{
-			widget: btn, row: 6, col: i, section: "rotation",
+			widget: btn, row: 5, col: i, section: "rotation",
 			isVisible: rotVis, onActivate: func() { btn.Activate() },
 		})
 	}

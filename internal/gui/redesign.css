@@ -144,9 +144,6 @@
     min-height: 52px;
     border-radius: 12px;
 }
-.drawer .orient-btn {
-    min-height: 56px;
-}
 .rate-hz {
     font-size: 14px;
     font-weight: bold;
@@ -200,3 +197,18 @@ checkbutton.tab-btn > check {
     -gtk-icon-size: 0;
     opacity: 0;
 }
+
+/* Display tab, compact rows: refresh rate and auto-rotate share a line with
+   their title, so their buttons are shorter (still >= 44px). */
+.drawer .btn-group.compact button {
+    min-height: 44px;
+    min-width: 72px;
+    padding: 0 10px;
+}
+.drawer .orient-btn {
+    min-height: 48px;
+    -gtk-icon-size: 24px;
+}
+.orient-90 image { -gtk-icon-transform: rotate(90deg); }
+.orient-180 image { -gtk-icon-transform: rotate(180deg); }
+.orient-270 image { -gtk-icon-transform: rotate(270deg); }

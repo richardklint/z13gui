@@ -413,21 +413,10 @@ func (w *Window) setRates(rates []system.Rate, currentID string, currentHz int) 
 		w.rateBtns = make(map[string]*gtk.Button, len(rates))
 		for i, r := range rates {
 			r := r
-			hint := "Smooth"
+			b := gtk.NewButtonWithLabel(strconv.Itoa(r.Hz) + " Hz")
 			if i == 0 && len(rates) > 1 {
-				hint = "Battery saver"
+				b.SetTooltipText("Saves battery")
 			}
-			b := gtk.NewButton()
-			box := gtk.NewBox(gtk.OrientationVertical, 0)
-			box.SetHAlign(gtk.AlignCenter)
-			box.SetVAlign(gtk.AlignCenter)
-			hz := centeredLabel(strconv.Itoa(r.Hz) + " Hz")
-			hz.AddCSSClass("rate-hz")
-			h := centeredLabel(hint)
-			h.AddCSSClass("rate-hint")
-			box.Append(hz)
-			box.Append(h)
-			b.SetChild(box)
 			b.ConnectClicked(func() { w.setRefresh(r) })
 			w.rateBtns[r.ModeID] = b
 			w.rateRow.Append(b)

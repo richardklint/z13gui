@@ -48,6 +48,8 @@ var drawerIcons = map[string]string{
 		"M1.76 11.60L3.20 8.17L5.92 9.20z",
 	// Padlock: rotation locked.
 	"z13-lock-symbolic": "M3.5 7h9v7.5h-9zM5 7V5a3 3 0 0 1 6 0v2h-1.5V5a1.5 1.5 0 0 0-3 0v2z",
+	// Screen with an "up" arrow; rotated per orientation button in CSS.
+	"z13-orient-symbolic": "M1 3.5h14v9H1zM2.5 5v6h11V5zM8 6.2l2.4 3.3H5.6z",
 	// Cross.
 	"z13-close-symbolic": "M3.4 2.3 8 6.9l4.6-4.6 1.1 1.1L9.1 8l4.6 4.6-1.1 1.1L8 9.1l-4.6 4.6-1.1-1.1L6.9 8 2.3 3.4z",
 	// Chevron pointing right.
