@@ -530,21 +530,24 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	w.bootSoundSwitch = bs.sw
 	w.bootSoundRow = bs
 
+	// Theme opens a view rather than toggling a setting, so it reads as a
+	// button: text centred on the button's full width. A CenterBox keeps it
+	// truly centred — the chevron at the end does not push it left.
 	w.themeRow = gtk.NewButton()
 	w.themeRow.AddCSSClass("switch-row")
-	tBox := gtk.NewBox(gtk.OrientationHorizontal, 12)
+	tBox := gtk.NewCenterBox()
 	tText := gtk.NewBox(gtk.OrientationVertical, 2)
-	tText.SetHExpand(true)
-	tTitle := gtk.NewLabel("Theme")
-	tTitle.SetXAlign(0)
+	tText.SetVAlign(gtk.AlignCenter)
+	tTitle := centeredLabel("Theme")
 	tTitle.AddCSSClass("row-title")
-	w.themeNameLbl = gtk.NewLabel("")
-	w.themeNameLbl.SetXAlign(0)
+	w.themeNameLbl = centeredLabel("")
 	w.themeNameLbl.AddCSSClass("row-sub")
 	tText.Append(tTitle)
 	tText.Append(w.themeNameLbl)
-	tBox.Append(tText)
-	tBox.Append(gtk.NewImageFromIconName("z13-chevron-symbolic"))
+	tBox.SetCenterWidget(tText)
+	chevron := gtk.NewImageFromIconName("z13-chevron-symbolic")
+	chevron.SetVAlign(gtk.AlignCenter)
+	tBox.SetEndWidget(chevron)
 	w.themeRow.SetChild(tBox)
 	w.themeRow.ConnectClicked(func() { w.showThemeView() })
 	w.updateThemeName()
