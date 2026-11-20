@@ -362,3 +362,37 @@ window.z13-drawer-window {
     background: @z13-accent;
     color: @z13-bg;
 }
+
+/* Unselected options: lifted off whatever they sit on, with a visible edge, so
+   they read as tappable rather than as part of the card. Mixed from the theme's
+   own tokens so every theme keeps its character. The .active / :checked rules
+   above are more specific and still win. */
+.drawer .btn-group button,
+.drawer checkbutton {
+    background: mix(@z13-surface-alt, @z13-text, 0.08);
+    color: @z13-text;
+    border: 1px solid mix(@z13-border, @z13-text, 0.25);
+}
+.drawer .btn-group button:hover,
+.drawer checkbutton:hover {
+    background: mix(@z13-surface-alt, @z13-text, 0.16);
+}
+.drawer .btn-group button:disabled {
+    color: mix(@z13-text-dim, @z13-text, 0.3);
+}
+.drawer .btn-group button.active,
+.drawer checkbutton:checked {
+    border-color: @z13-accent;
+}
+.drawer switch {
+    background: mix(@z13-surface-alt, @z13-text, 0.22);
+}
+.drawer switch:checked {
+    background: @z13-accent;
+}
+.tab-bar-btn {
+    color: mix(@z13-text-dim, @z13-text, 0.65);
+}
+.tab-bar-btn.active {
+    color: @z13-text;
+}
