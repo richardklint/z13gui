@@ -37,7 +37,7 @@ internal/gui/
   controls.go                   buildContent (view stack + error bar), theme/colour views, shared builders
   tabs.go                       Tabbed main view: header, Power/Lighting/Display pages, tab bar,
                                 switchRow (whole-row toggle), per-tab focus grids
-  features.go                   Behaviour for the redesign: game perf, charge limit + one-off top-up,
+  features.go                   Behaviour for the redesign: GameMode badge, charge limit + one-off top-up,
                                 power card/graph, brightness, refresh rate, rotation, on-screen keyboard
   sysctl.go                     kscreen-doctor / busctl / sysfs I/O (goroutine-safe, no widgets)
   icons.go                      Bundled filled symbolic SVG icons, added to the icon theme search path
@@ -110,7 +110,7 @@ gone; overdrive/boot sound/theme live on the Display tab.
 - Desktop integrations are probed once at startup (`probeDesktopCaps`) and their
   rows hidden when absent (gamescope, GNOME): kscreen-doctor (rotation, refresh),
   `org.kde.ScreenBrightness` (brightness), KWin `VirtualKeyboard` (OSK), the
-  amdgpu DPM level file (GPU clocks). All run through `busctl`/`kscreen-doctor`
+  Feral GameMode (`ClientCount`, header badge). All run through `busctl`/`kscreen-doctor`
   in goroutines with a 5s timeout.
 - APU power is sampled once a second for the life of the process into a
   `system.History`, so the graph has a minute of data on open.
@@ -118,9 +118,10 @@ gone; overdrive/boot sound/theme live on the Display tab.
   power-source event (and startup) restores `prefs.ChargeLimit` once AC is
   offline; `PendingRestore` is persisted in prefs.conf so a restart mid-charge
   still restores it.
-- "Game performance" = performance profile; its "Force GPU clocks high"
-  sub-switch writes the DPM level and is released when game performance is
-  turned off.
+- The header shows a "Game mode" badge while Feral GameMode has a game
+  registered (polled with the 1s telemetry tick while the drawer is open). There
+  is deliberately no game-performance toggle or GPU-level control: forcing the
+  amdgpu DPM level to high alongside profile writes was implicated in an SMU hang.
 
 ## Key architectural decisions
 

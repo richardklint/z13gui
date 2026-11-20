@@ -59,7 +59,6 @@ func (w *Window) syncState() {
 	w.syncBattery()
 	w.syncOverdrive()
 	w.syncBootSound()
-	w.syncGamePerf()
 	w.syncCustomView()
 	w.updateHeader()
 }

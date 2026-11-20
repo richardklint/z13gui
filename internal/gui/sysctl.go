@@ -61,7 +61,7 @@ type desktopCaps struct {
 	kscreen    bool // kscreen-doctor present and answering
 	brightness bool // org.kde.ScreenBrightness display0 answering
 	osk        bool // KWin VirtualKeyboard available
-	gpuPerf    bool // amdgpu DPM level file writable
+	gamemode   bool // Feral GameMode daemon answering
 }
 
 func probeDesktopCaps() desktopCaps {
@@ -76,19 +76,10 @@ func probeDesktopCaps() desktopCaps {
 		v, err := busctlGet("org.kde.KWin", "/VirtualKeyboard", "org.kde.kwin.VirtualKeyboard", "available")
 		c.osk = err == nil && v == "b true"
 	}
-	if f := gpuPerfPath(); f != "" {
-		c.gpuPerf = isWritable(f)
+	if _, err := gameModeClients(); err == nil {
+		c.gamemode = true
 	}
 	return c
-}
-
-func isWritable(path string) bool {
-	f, err := os.OpenFile(path, os.O_WRONLY, 0)
-	if err != nil {
-		return false
-	}
-	_ = f.Close()
-	return true
 }
 
 // --- KScreen ---
@@ -184,9 +175,6 @@ func toggleOnScreenKeyboard() error {
 const (
 	hwmonRoot    = "/sys/class/hwmon"
 	powerSupply  = "/sys/class/power_supply"
-	drmCardGlob  = "/sys/class/drm/card*/device/power_dpm_force_performance_level"
-	gpuPerfAuto  = "auto"
-	gpuPerfHigh  = "high"
 	amdgpuHwmon  = "amdgpu"
 	readFileSize = 4096
 )
@@ -299,40 +287,14 @@ func (s sensors) acOnline() (online, known bool) {
 	return v == "1", true
 }
 
-// gpuPerfPath returns the amdgpu DPM level file, preferring the card that has
-// an amdgpu hwmon (the iGPU on a Z13; card numbering is not stable).
-func gpuPerfPath() string {
-	matches, _ := filepath.Glob(drmCardGlob)
-	for _, m := range matches {
-		hw, _ := filepath.Glob(filepath.Join(filepath.Dir(m), "hwmon", "hwmon*", "name"))
-		for _, n := range hw {
-			if v, _ := readSmall(n); v == amdgpuHwmon {
-				return m
-			}
-		}
+// gameModeClients returns how many games Feral GameMode has registered;
+// GameMode is active while it is above zero.
+func gameModeClients() (int, error) {
+	v, err := busctlGet("com.feralinteractive.GameMode", "/com/feralinteractive/GameMode",
+		"com.feralinteractive.GameMode", "ClientCount")
+	if err != nil {
+		return 0, err
 	}
-	if len(matches) > 0 {
-		return matches[0]
-	}
-	return ""
-}
-
-func readGPUPerf() string {
-	p := gpuPerfPath()
-	if p == "" {
-		return ""
-	}
-	v, _ := readSmall(p)
-	return v
-}
-
-func writeGPUPerf(level string) error {
-	p := gpuPerfPath()
-	if p == "" {
-		return errors.New("no amdgpu performance control found")
-	}
-	if err := os.WriteFile(p, []byte(level), 0); err != nil {
-		return fmt.Errorf("set GPU level %s: %w", level, err)
-	}
-	return nil
+	_, num, _ := strings.Cut(v, " ") // busctl prints "i 1"
+	return strconv.Atoi(num)
 }

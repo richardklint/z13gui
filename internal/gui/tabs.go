@@ -163,13 +163,21 @@ func (w *Window) buildHeader() *gtk.Box {
 	text := gtk.NewBox(gtk.OrientationVertical, 1)
 	text.SetHExpand(true)
 	text.SetVAlign(gtk.AlignCenter)
+	titleRow := gtk.NewBox(gtk.OrientationHorizontal, 8)
 	title := gtk.NewLabel("Z13")
 	title.SetXAlign(0)
 	title.AddCSSClass("header-title")
+	// Shown while Feral GameMode has a game registered.
+	w.gameBadge = gtk.NewLabel("Game mode")
+	w.gameBadge.AddCSSClass("game-badge")
+	w.gameBadge.SetVAlign(gtk.AlignCenter)
+	w.gameBadge.SetVisible(false)
+	titleRow.Append(title)
+	titleRow.Append(w.gameBadge)
 	w.headerTelemetry = gtk.NewLabel("")
 	w.headerTelemetry.SetXAlign(0)
 	w.headerTelemetry.AddCSSClass("header-telemetry")
-	text.Append(title)
+	text.Append(titleRow)
 	text.Append(w.headerTelemetry)
 	row.Append(text)
 
@@ -257,13 +265,6 @@ func (w *Window) cycleTab(dir int) {
 func (w *Window) buildPowerPage() *gtk.Box {
 	page := pageBox()
 	page.Append(w.buildPowerCard())
-
-	w.gameRow = w.newSwitchRow("Game performance", "Performance profile for gaming", w.setGamePerf)
-	w.gpuHighRow = w.newSwitchRow("Force GPU clocks high", "Linked to the Sept SMU freeze", w.setGPUHigh)
-	w.gpuHighRow.sub.AddCSSClass("row-warn")
-	w.gpuHighRow.btn.AddCSSClass("switch-row-sub")
-	w.gpuHighRow.btn.SetVisible(false) // shown when the DPM file is writable
-	page.Append(card(w.gameRow.btn, w.gpuHighRow.btn))
 
 	page.Append(w.buildProfileSection())
 	page.Append(w.buildBatteryCard())
@@ -594,10 +595,6 @@ func (w *Window) buildTabFocusLists() {
 
 func (w *Window) powerFocus() []focusItem {
 	items := w.headerFocus()
-	items = append(items,
-		w.gameRow.focus(1, "game", nil),
-		w.gpuHighRow.focus(2, "game", visibleFn(w.gpuHighRow.btn)),
-	)
 	for i, p := range profiles {
 		btn := w.profileBtns[p]
 		items = append(items, focusItem{

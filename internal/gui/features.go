@@ -2,7 +2,7 @@
 
 package gui
 
-// features.go — behaviour behind the redesign's controls: game performance,
+// features.go — behaviour behind the redesign's controls: the GameMode badge,
 // the charge-limit switch and its one-off top-up, the power card, and the
 // Display tab (brightness, refresh rate, rotation, on-screen keyboard).
 //
@@ -55,7 +55,7 @@ func (w *Window) probeDesktop() {
 	go func() {
 		c := probeDesktopCaps()
 		slog.Info("desktop integrations", "kscreen", c.kscreen, "brightness", c.brightness,
-			"osk", c.osk, "gpuPerf", c.gpuPerf)
+			"osk", c.osk, "gamemode", c.gamemode)
 		glib.IdleAdd(func() { w.applyCaps(c) })
 	}()
 }
@@ -67,7 +67,6 @@ func (w *Window) applyCaps(c desktopCaps) {
 	w.rateBox.SetVisible(c.kscreen)
 	w.screenCard.SetVisible(c.brightness || c.kscreen)
 	w.rotCard.SetVisible(c.kscreen)
-	w.gpuHighRow.btn.SetVisible(c.gpuPerf)
 	if w.visible.Load() {
 		w.refreshDesktop()
 	}
@@ -79,7 +78,7 @@ func (w *Window) refreshDesktop() {
 	c := w.caps
 	sens := w.sens
 	go func() {
-		r := readPowerReadings(sens)
+		r := readPowerReadings(sens, c.gamemode)
 		glib.IdleAdd(func() { w.applyPowerReadings(r) })
 	}()
 	if c.kscreen {
@@ -101,12 +100,6 @@ func (w *Window) refreshDesktop() {
 			})
 		}()
 	}
-	if c.gpuPerf {
-		go func() {
-			level := readGPUPerf()
-			glib.IdleAdd(func() { w.applyGPULevel(level) })
-		}()
-	}
 }
 
 // --- header and power card ---
@@ -120,10 +113,15 @@ type powerReadings struct {
 	battOK   bool
 	acOnline bool
 	acKnown  bool
+	gameMode bool // Feral GameMode has a game registered
 }
 
-func readPowerReadings(s sensors) powerReadings {
+func readPowerReadings(s sensors, gamemode bool) powerReadings {
 	var r powerReadings
+	if gamemode {
+		n, err := gameModeClients()
+		r.gameMode = err == nil && n > 0
+	}
 	r.gpuTemp, r.gpuOK = s.readGPUTemp()
 	r.batt, r.battOK = s.readBattery()
 	r.acOnline, r.acKnown = s.acOnline()
@@ -135,6 +133,7 @@ func (w *Window) applyPowerReadings(r powerReadings) {
 		w.lastBatt = &r.batt
 	}
 	w.updateHeader()
+	w.gameBadge.SetVisible(r.gameMode)
 
 	samples := w.powerHist.Snapshot()
 	if len(samples) > 0 {
@@ -239,66 +238,6 @@ func (w *Window) newPowerGraph() *gtk.DrawingArea {
 		cr.Stroke()
 	})
 	return da
-}
-
-// --- game performance ---
-
-func (w *Window) syncGamePerf() {
-	if w.state == nil || w.gameRow == nil {
-		return
-	}
-	on := w.state.Profile == "performance"
-	w.gameRow.sw.SetActive(on)
-	if on {
-		w.gameRow.setSub("Performance profile active")
-	} else {
-		w.gameRow.setSub("Performance profile for gaming")
-	}
-	w.gpuHighRow.btn.SetSensitive(on || w.gpuHighRow.sw.Active())
-}
-
-// setGamePerf switches between the performance and balanced profiles. Turning
-// it off also releases a forced GPU level, so "off" really is the default state.
-func (w *Window) setGamePerf(on bool) {
-	prof := "balanced"
-	if on {
-		prof = "performance"
-	}
-	setActiveButton(w.profileBtns, prof)
-	w.gpuHighRow.btn.SetSensitive(on || w.gpuHighRow.sw.Active())
-	w.sendProfileSet(prof)
-	if !on && w.gpuHighRow.sw.Active() {
-		w.gpuHighRow.sw.SetActive(false) // fires setGPUHigh(false)
-	}
-}
-
-func (w *Window) applyGPULevel(level string) {
-	w.syncing = true
-	w.gpuHighRow.sw.SetActive(level == gpuPerfHigh)
-	w.syncing = false
-	if level != "" && level != gpuPerfHigh && level != gpuPerfAuto {
-		w.gpuHighRow.setSub("GPU level: " + level)
-	} else {
-		w.gpuHighRow.setSub("Linked to the Sept SMU freeze")
-	}
-	w.gpuHighRow.btn.SetSensitive(w.gameRow.sw.Active() || level == gpuPerfHigh)
-}
-
-func (w *Window) setGPUHigh(on bool) {
-	level := gpuPerfAuto
-	if on {
-		level = gpuPerfHigh
-	}
-	go func() {
-		err := writeGPUPerf(level)
-		if err != nil {
-			w.reportError("Set GPU clocks", err)
-		} else {
-			w.clearErrorAsync()
-		}
-		actual := readGPUPerf()
-		glib.IdleAdd(func() { w.applyGPULevel(actual) })
-	}()
 }
 
 // --- charge limit ---

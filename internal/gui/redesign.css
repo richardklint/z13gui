@@ -177,3 +177,11 @@ scale.big-scale slider {
     border-radius: 16px;
     margin: -10px 0;
 }
+
+/* GameMode badge beside the header title. */
+.game-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9px;
+}

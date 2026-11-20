@@ -135,6 +135,7 @@ type Window struct {
 	tabFocus   map[string][]focusItem
 	curTab     string
 	oskBtn     *gtk.Button
+	gameBadge  *gtk.Label
 	closeBtn   *gtk.Button
 	// Power tab.
 	powerValue     *gtk.Label
@@ -142,8 +143,6 @@ type Window struct {
 	cpuTempLbl     *gtk.Label
 	gpuTempLbl     *gtk.Label
 	fanLbl         *gtk.Label
-	gameRow        *switchRow
-	gpuHighRow     *switchRow
 	battLevel      *gtk.LevelBar
 	battPctLbl     *gtk.Label
 	battStatusLbl  *gtk.Label

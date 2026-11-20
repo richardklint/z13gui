@@ -358,3 +358,7 @@ window.z13-drawer-window {
 .rate-hint {
     opacity: 0.8;
 }
+.game-badge {
+    background: @z13-accent;
+    color: @z13-bg;
+}
