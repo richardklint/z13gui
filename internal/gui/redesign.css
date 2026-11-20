@@ -185,3 +185,27 @@ scale.big-scale slider {
     padding: 2px 8px;
     border-radius: 9px;
 }
+
+/* −/+ beside the brightness slider. */
+.step-btn {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0;
+    border-radius: 24px;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* Keyboard / Lightbar are radio buttons styled as segments: drop the indicator
+   so the label can sit in the true centre of the button. */
+checkbutton.tab-btn > radio,
+checkbutton.tab-btn > check {
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    -gtk-icon-size: 0;
+    opacity: 0;
+}

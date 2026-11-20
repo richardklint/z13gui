@@ -391,6 +391,20 @@ func (w *Window) onScreenBrightness() {
 	})
 }
 
+// stepScreenBrightness nudges the slider by delta percent; the slider's own
+// handler debounces and applies it, so a run of taps sends one change.
+func (w *Window) stepScreenBrightness(delta int) {
+	adj := w.screenBright.Adjustment()
+	v := adj.Value() + float64(delta)
+	if v < adj.Lower() {
+		v = adj.Lower()
+	}
+	if v > adj.Upper() {
+		v = adj.Upper()
+	}
+	adj.SetValue(v)
+}
+
 func (w *Window) rereadDisplay() {
 	d, err := readDisplay()
 	if err != nil {
@@ -467,9 +481,11 @@ func (w *Window) setRates(rates []system.Rate, currentID string, currentHz int) 
 			}
 			b := gtk.NewButton()
 			box := gtk.NewBox(gtk.OrientationVertical, 0)
-			hz := gtk.NewLabel(strconv.Itoa(r.Hz) + " Hz")
+			box.SetHAlign(gtk.AlignCenter)
+			box.SetVAlign(gtk.AlignCenter)
+			hz := centeredLabel(strconv.Itoa(r.Hz) + " Hz")
 			hz.AddCSSClass("rate-hz")
-			h := gtk.NewLabel(hint)
+			h := centeredLabel(hint)
 			h.AddCSSClass("rate-hint")
 			box.Append(hz)
 			box.Append(h)

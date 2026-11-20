@@ -203,6 +203,7 @@ func (w *Window) buildTabBar() *gtk.Box {
 		b.AddCSSClass("tab-bar-btn")
 		inner := gtk.NewBox(gtk.OrientationVertical, 4)
 		inner.SetHAlign(gtk.AlignCenter)
+		inner.SetVAlign(gtk.AlignCenter)
 		pill := gtk.NewBox(gtk.OrientationHorizontal, 0)
 		pill.AddCSSClass("tab-pill")
 		pill.SetHAlign(gtk.AlignCenter)
@@ -444,8 +445,18 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	w.screenBright.SetFocusable(false)
 	w.screenBright.AddCSSClass("big-scale")
 	w.screenBright.ConnectValueChanged(w.onScreenBrightness)
+	w.screenBright.SetHExpand(true)
+	w.screenBright.SetVAlign(gtk.AlignCenter)
+	w.brightDown = stepButton("−", "Brightness down 5%")
+	w.brightDown.ConnectClicked(func() { w.stepScreenBrightness(-brightnessStep) })
+	w.brightUp = stepButton("+", "Brightness up 5%")
+	w.brightUp.ConnectClicked(func() { w.stepScreenBrightness(brightnessStep) })
+	slider := gtk.NewBox(gtk.OrientationHorizontal, 10)
+	slider.Append(w.brightDown)
+	slider.Append(w.screenBright)
+	slider.Append(w.brightUp)
 	bright.Append(bHead)
-	bright.Append(w.screenBright)
+	bright.Append(slider)
 	w.screenBrightBox = bright
 
 	rate := gtk.NewBox(gtk.OrientationVertical, 8)
@@ -540,6 +551,27 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 
 	page.Append(card(od.btn, bs.btn, w.themeRow))
 	return page
+}
+
+// brightnessStep is the screen brightness change per −/+ tap, in percent.
+const brightnessStep = 5
+
+// stepButton is a square −/+ button beside a slider.
+func stepButton(label, tooltip string) *gtk.Button {
+	b := gtk.NewButtonWithLabel(label)
+	b.SetTooltipText(tooltip)
+	b.AddCSSClass("step-btn")
+	b.SetVAlign(gtk.AlignCenter)
+	return b
+}
+
+// centeredLabel is a label that stays centred in whatever button holds it.
+func centeredLabel(text string) *gtk.Label {
+	l := gtk.NewLabel(text)
+	l.SetHExpand(true)
+	l.SetHAlign(gtk.AlignCenter)
+	l.SetJustify(gtk.JustifyCenter)
+	return l
 }
 
 func boolInt(b bool) int {
@@ -674,12 +706,16 @@ func (w *Window) lightingFocus() []focusItem {
 func (w *Window) displayFocus() []focusItem {
 	items := w.headerFocus()
 	screenVis := visibleFn(w.screenCard)
-	sl, sr, sg, ss := scaleAdjust(w.screenBright, 5)
-	items = append(items, focusItem{
-		widget: w.screenBright, row: 1, col: 0, section: "screen",
-		isVisible: func() bool { return screenVis() && w.screenBrightBox.IsVisible() },
-		editable:  true, onLeft: sl, onRight: sr, getValue: sg, setValue: ss,
-	})
+	brightVis := func() bool { return screenVis() && w.screenBrightBox.IsVisible() }
+	sl, sr, sg, ss := scaleAdjust(w.screenBright, brightnessStep)
+	items = append(items,
+		focusItem{widget: w.brightDown, row: 1, col: 0, section: "screen", isVisible: brightVis,
+			onActivate: func() { w.brightDown.Activate() }},
+		focusItem{widget: w.screenBright, row: 1, col: 1, section: "screen", isVisible: brightVis,
+			editable: true, onLeft: sl, onRight: sr, getValue: sg, setValue: ss},
+		focusItem{widget: w.brightUp, row: 1, col: 2, section: "screen", isVisible: brightVis,
+			onActivate: func() { w.brightUp.Activate() }},
+	)
 	for i, r := range w.rates {
 		btn := w.rateBtns[r.ModeID]
 		items = append(items, focusItem{

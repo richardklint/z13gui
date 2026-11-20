@@ -395,9 +395,11 @@ func (w *Window) showThemeView() {
 func (w *Window) buildTabRow() *gtk.Box {
 	row := gtk.NewBox(gtk.OrientationHorizontal, 4)
 
-	kb := gtk.NewCheckButtonWithLabel("Keyboard")
+	kb := gtk.NewCheckButton()
+	kb.SetChild(centeredLabel("Keyboard"))
 	kb.SetActive(true)
-	lb := gtk.NewCheckButtonWithLabel("Lightbar")
+	lb := gtk.NewCheckButton()
+	lb.SetChild(centeredLabel("Lightbar"))
 	lb.SetGroup(kb)
 
 	kb.AddCSSClass("tab-btn")
