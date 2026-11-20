@@ -61,80 +61,18 @@ func newDrawerScroll(child gtk.Widgetter) *gtk.ScrolledWindow {
 	return scroll
 }
 
-// buildContent builds the scrolled content box and returns it as the window child.
-// Content, theme view, and color picker view are in a gtk.Stack so views can be
-// swapped for gamepad navigation (and in gamescope where popovers don't work).
+// buildContent builds the window child: the view stack (tabbed main view plus
+// the custom, theme and colour views, which are lazy-built) and the error bar.
+// Every view lives in one gtk.Stack in both backends, for consistent gamepad
+// navigation and because popovers do not composite under gamescope.
 func (w *Window) buildContent() gtk.Widgetter {
 	outer := gtk.NewBox(gtk.OrientationVertical, 0)
 	outer.AddCSSClass("drawer")
 
-	// Fixed title row — sits above the scroll area, always visible.
-	titleRow := gtk.NewBox(gtk.OrientationHorizontal, 0)
-	titleRow.SetMarginTop(10)
-	titleRow.SetMarginBottom(6)
-	titleRow.SetMarginStart(14)
-	titleRow.SetMarginEnd(14)
-
-	titleLabel := gtk.NewLabel("z13ctl")
-	titleLabel.SetHAlign(gtk.AlignStart)
-	titleLabel.AddCSSClass("drawer-title")
-	titleRow.Append(titleLabel)
-
-	w.headerTelemetry = gtk.NewLabel("")
-	w.headerTelemetry.SetHAlign(gtk.AlignEnd)
-	w.headerTelemetry.SetHExpand(true)
-	w.headerTelemetry.AddCSSClass("header-telemetry")
-	titleRow.Append(w.headerTelemetry)
-
-	inner := gtk.NewBox(gtk.OrientationVertical, 8)
-	inner.SetMarginTop(4)
-	inner.SetMarginBottom(12)
-	inner.SetMarginStart(12)
-	inner.SetMarginEnd(12)
-
-	// TDP AND POWER section.
-	inner.Append(groupLabel("TDP AND POWER"))
-	inner.Append(w.buildProfileSection())
-	inner.Append(w.buildBatterySection())
-	inner.Append(separator())
-
-	// RGB section.
-	inner.Append(groupLabel("RGB"))
-	inner.Append(w.buildTabRow())
-	inner.Append(w.buildModeSection())
-
-	// Initialize color inputs here so syncModeVis can reference them.
-	w.color1 = w.newColorInput("FF0000", "color1-swatch", "COLOR 1")
-	w.color2 = w.newColorInput("000000", "color2-swatch", "COLOR 2")
-	w.updateSwatches()
-
-	w.color1Box = colorSubBox("COLOR 1", w.color1.row)
-	w.color2Box = colorSubBox("COLOR 2", w.color2.row)
-	inner.Append(w.color1Box)
-	inner.Append(w.color2Box)
-
-	w.speedBox = w.buildSpeedBox()
-	inner.Append(w.speedBox)
-	w.brightBox = w.buildBrightnessBox()
-	inner.Append(w.brightBox)
-
-	// Set initial visibility based on default mode (static).
-	w.syncModeVis()
-
-	scroll := newDrawerScroll(inner)
-	w.mainScroll = scroll
-
-	// Stack with main, theme, and color views — used in both modes.
 	w.viewStack = gtk.NewStack()
 	w.viewStack.SetTransitionType(gtk.StackTransitionTypeNone)
 	w.viewStack.SetVExpand(true)
-
-	mainPage := gtk.NewBox(gtk.OrientationVertical, 0)
-	mainPage.Append(titleRow)
-	mainPage.Append(scroll)
-	w.viewStack.AddNamed(mainPage, "main")
-	// Theme and color views are lazy-loaded on first navigation
-	// to keep the initial widget tree small for fast animation.
+	w.viewStack.AddNamed(w.buildMainView(), "main")
 	w.viewStack.SetVisibleChildName("main")
 	outer.Append(w.viewStack)
 
@@ -142,73 +80,8 @@ func (w *Window) buildContent() gtk.Widgetter {
 	// visible, including after a view switch.
 	outer.Append(w.buildErrorBar())
 
-	outer.Append(w.buildBottomBar())
-
-	w.buildMainFocusList()
 	w.focusItems = w.mainFocusItems
-
 	return outer
-}
-
-// buildBottomBar returns the fixed bottom bar containing the theme picker button
-// and system toggles (panel overdrive, boot sound). It sits below the scroll
-// area and is always visible (not scrolled).
-func (w *Window) buildBottomBar() *gtk.Box {
-	bar := gtk.NewBox(gtk.OrientationHorizontal, 4)
-	bar.AddCSSClass("bottom-bar")
-	bar.SetMarginTop(4)
-	bar.SetMarginBottom(8)
-	bar.SetMarginStart(10)
-
-	w.paletteBtn = gtk.NewButton()
-	w.paletteBtn.SetIconName("preferences-desktop-color-symbolic")
-	w.paletteBtn.SetTooltipText("Choose theme")
-	w.paletteBtn.ConnectClicked(func() { w.showThemeView() })
-	bar.Append(w.paletteBtn)
-
-	// Spacer pushes toggles to the right.
-	spacer := gtk.NewBox(gtk.OrientationHorizontal, 0)
-	spacer.SetHExpand(true)
-	bar.Append(spacer)
-
-	bar.Append(w.buildToggle("Panel Overdrive", "Enable panel overdrive for faster pixel response (may cause ghosting)", &w.overdriveSwitch, func(active bool) {
-		v := 0
-		if active {
-			v = 1
-		}
-		w.sendOverdriveSet(v)
-	}))
-	bar.Append(w.buildToggle("Boot Sound", "Play startup sound when the laptop powers on", &w.bootSoundSwitch, func(active bool) {
-		v := 0
-		if active {
-			v = 1
-		}
-		w.sendBootSoundSet(v)
-	}))
-
-	return bar
-}
-
-// buildToggle creates a compact label + switch pair for the bottom bar.
-func (w *Window) buildToggle(label, tooltip string, sw **gtk.Switch, onChange func(bool)) *gtk.Box {
-	box := gtk.NewBox(gtk.OrientationHorizontal, 4)
-	box.SetTooltipText(tooltip)
-	lbl := gtk.NewLabel(label)
-	lbl.AddCSSClass("toggle-label")
-	s := gtk.NewSwitch()
-	s.ConnectStateSet(func(state bool) bool {
-		if !w.syncing {
-			onChange(state)
-		}
-		return false
-	})
-	if w.gamescope {
-		addTouchActivate(s, func() { s.SetActive(!s.Active()) })
-	}
-	*sw = s
-	box.Append(lbl)
-	box.Append(s)
-	return box
 }
 
 // buildThemeView builds the theme picker as a full scrollable view.
@@ -476,7 +349,7 @@ func hslScaleBox(label string, sc *gtk.Scale) *gtk.Box {
 func (w *Window) showMainView() {
 	if w.viewStack != nil {
 		w.viewStack.SetVisibleChildName("main")
-		w.swapFocusList(w.mainFocusItems)
+		w.swapFocusList(w.tabFocus[w.curTab])
 	}
 }
 
@@ -698,23 +571,6 @@ func (w *Window) buildProfileSection() *gtk.Box {
 	return box
 }
 
-// buildBatterySection creates the battery charge limit scale (40–100%).
-func (w *Window) buildBatterySection() *gtk.Box {
-	box := gtk.NewBox(gtk.OrientationVertical, 4)
-	box.Append(sectionLabel("BATTERY LIMIT"))
-
-	sc := gtk.NewScaleWithRange(gtk.OrientationHorizontal, 40, 100, 1)
-	sc.SetDigits(0)
-	sc.SetDrawValue(true)
-	sc.SetValue(80)
-	sc.SetFocusable(false)
-	w.battScale = sc
-	w.initBatteryDebounce(sc)
-
-	box.Append(sc)
-	return box
-}
-
 // colorSubBox wraps a section label + content widget into a single Box,
 // making it easy to show/hide the whole subsection at once.
 func colorSubBox(label string, content gtk.Widgetter) *gtk.Box {
@@ -730,154 +586,6 @@ func sectionLabel(text string) *gtk.Label {
 	l.SetHAlign(gtk.AlignStart)
 	l.AddCSSClass("section-label")
 	return l
-}
-
-// groupLabel creates a section group heading (e.g. "TDP AND POWER", "RGB").
-func groupLabel(text string) *gtk.Label {
-	l := gtk.NewLabel(text)
-	l.SetHAlign(gtk.AlignStart)
-	l.AddCSSClass("section-group")
-	return l
-}
-
-// separator creates a horizontal separator line.
-func separator() *gtk.Separator {
-	return gtk.NewSeparator(gtk.OrientationHorizontal)
-}
-
-// buildMainFocusList builds the 2D focus grid for the main drawer view.
-// Items are arranged by visual row/col matching the drawer layout.
-func (w *Window) buildMainFocusList() {
-	var items []focusItem
-	boxVisible := func(box *gtk.Box) func() bool {
-		return func() bool { return box.IsVisible() }
-	}
-
-	// Profiles — 2x2 grid.
-	for i, p := range profiles {
-		btn := w.profileBtns[p]
-		items = append(items, focusItem{
-			widget: btn, row: i / 2, col: i % 2,
-			section:    "profile",
-			onActivate: func() { btn.Activate() },
-		})
-	}
-
-	// Battery slider.
-	battLeft, battRight, battGet, battSet := scaleAdjust(w.battScale, 5)
-	items = append(items, focusItem{
-		widget: w.battScale, row: 2, col: 0,
-		section:  "battery",
-		editable: true,
-		onLeft:   battLeft, onRight: battRight,
-		getValue: battGet, setValue: battSet,
-	})
-
-	// Device tabs — horizontal row.
-	for col, btn := range []*gtk.CheckButton{w.tabKB, w.tabLB} {
-		btn := btn
-		items = append(items, focusItem{
-			widget: btn, row: 3, col: col,
-			section:    "tabs",
-			onActivate: func() { btn.SetActive(true) },
-		})
-	}
-
-	// Mode buttons — 3x2 grid.
-	for i, m := range modeOrder {
-		btn := w.modeButtons[m]
-		items = append(items, focusItem{
-			widget: btn, row: 4 + i/3, col: i % 3,
-			section:    "mode",
-			onActivate: func() { btn.Activate() },
-		})
-	}
-
-	// Color 1 presets — horizontal row of 8 buttons.
-	if w.color1 != nil {
-		vis := boxVisible(w.color1Box)
-		for col, btn := range w.color1.presetBtns {
-			btn := btn
-			items = append(items, focusItem{
-				widget: btn, row: 6, col: col,
-				section: "color1", isVisible: vis,
-				onActivate: func() { btn.Activate() },
-			})
-		}
-		// Custom button on its own row below presets.
-		items = append(items, focusItem{
-			widget: w.color1.customBtn, row: 7, col: 0,
-			section: "color1", isVisible: vis,
-			onActivate: func() { w.showColorView(w.color1) },
-		})
-	}
-
-	// Color 2 presets.
-	if w.color2 != nil {
-		vis := boxVisible(w.color2Box)
-		for col, btn := range w.color2.presetBtns {
-			btn := btn
-			items = append(items, focusItem{
-				widget: btn, row: 8, col: col,
-				section: "color2", isVisible: vis,
-				onActivate: func() { btn.Activate() },
-			})
-		}
-		items = append(items, focusItem{
-			widget: w.color2.customBtn, row: 9, col: 0,
-			section: "color2", isVisible: vis,
-			onActivate: func() { w.showColorView(w.color2) },
-		})
-	}
-
-	// Speed buttons — horizontal row.
-	for col, s := range speeds {
-		btn := w.speedBtns[s]
-		items = append(items, focusItem{
-			widget: btn, row: 10, col: col,
-			section: "speed", isVisible: boxVisible(w.speedBox),
-			onActivate: func() { btn.Activate() },
-		})
-	}
-
-	// Brightness slider.
-	brLeft, brRight, brGet, brSet := scaleAdjust(w.brightScale, 1)
-	items = append(items, focusItem{
-		widget: w.brightScale, row: 11, col: 0,
-		section: "brightness", isVisible: boxVisible(w.brightBox),
-		editable: true,
-		onLeft:   brLeft, onRight: brRight,
-		getValue: brGet, setValue: brSet,
-	})
-
-	// Footer: theme button, overdrive, boot sound.
-	col := 0
-	items = append(items, focusItem{
-		widget: w.paletteBtn, row: 12, col: col,
-		section:    "footer",
-		onActivate: func() { w.showThemeView() },
-	})
-	col++
-	if w.overdriveSwitch != nil {
-		sw := w.overdriveSwitch
-		items = append(items, focusItem{
-			widget: sw, row: 12, col: col,
-			section:    "footer",
-			onActivate: func() { sw.SetActive(!sw.Active()) },
-		})
-		col++
-	}
-	if w.bootSoundSwitch != nil {
-		sw := w.bootSoundSwitch
-		items = append(items, focusItem{
-			widget: sw, row: 12, col: col,
-			section:    "footer",
-			onActivate: func() { sw.SetActive(!sw.Active()) },
-		})
-	}
-
-	items = append(items, w.errBarFocusItem())
-	w.mainFocusItems = items
 }
 
 // buildThemeFocusList builds the 2D focus grid for the theme picker view.
@@ -959,4 +667,9 @@ func (w *Window) buildColorFocusList() {
 
 	items = append(items, w.errBarFocusItem())
 	w.colorFocusItems = items
+}
+
+// separator creates a horizontal separator line.
+func separator() *gtk.Separator {
+	return gtk.NewSeparator(gtk.OrientationHorizontal)
 }

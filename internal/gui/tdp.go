@@ -889,6 +889,10 @@ func (w *Window) refreshState() {
 		w.syncCustomView()
 		w.syncing = true
 		w.syncProfile()
+		w.syncGamePerf()
+		w.syncBattery()
+		w.syncOverdrive()
+		w.syncBootSound()
 		w.syncing = false
 	})
 }
@@ -1022,8 +1026,10 @@ func (w *Window) startTelemetryPolling() {
 			return true
 		}
 		w.telemetryBusy = true
+		sens := w.sens
 		go func() {
 			ok, state, err := api.SendGetState()
+			readings := readPowerReadings(sens)
 			glib.IdleAdd(func() {
 				// Cleared unconditionally, including on the failure paths below:
 				// leaving it set would stop the poll for good.
@@ -1031,6 +1037,12 @@ func (w *Window) startTelemetryPolling() {
 				if gen != w.telemetryGen {
 					return
 				}
+				if ok && err == nil && state != nil {
+					w.state = state
+				}
+				// Sysfs readings do not depend on the daemon, so the power card
+				// keeps moving even while the daemon is away.
+				w.applyPowerReadings(readings)
 				// Deliberately silent, unlike every other daemon call: this is a
 				// background poll the user did not ask for, and reporting it would
 				// repaint the bar every second, overwriting whatever error they were
@@ -1039,11 +1051,6 @@ func (w *Window) startTelemetryPolling() {
 					return
 				}
 				w.state = state
-
-				// Header telemetry (visible on all views).
-				if w.headerTelemetry != nil {
-					w.headerTelemetry.SetLabel(fmt.Sprintf("%d°C · %d RPM", state.Temperature, state.FanRPM))
-				}
 
 				// Custom view telemetry (only when active).
 				if w.viewStack != nil && w.viewStack.VisibleChildName() == "custom" {

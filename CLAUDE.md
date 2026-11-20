@@ -34,7 +34,14 @@ Makefile                        build, install, lint, clean, snapshot, release
 internal/gui/
   gui.go                        Window struct, backend selection, show/hide, subscribeLoop, theming
   backend.go                    Backend interface (Configure, WrapContent, Show, Hide)
-  controls.go                   All GTK widget construction (drawer, views, bottom bar)
+  controls.go                   buildContent (view stack + error bar), theme/colour views, shared builders
+  tabs.go                       Tabbed main view: header, Power/Lighting/Display pages, tab bar,
+                                switchRow (whole-row toggle), per-tab focus grids
+  features.go                   Behaviour for the redesign: game perf, charge limit + one-off top-up,
+                                power card/graph, brightness, refresh rate, rotation, on-screen keyboard
+  sysctl.go                     kscreen-doctor / busctl / sysfs I/O (goroutine-safe, no widgets)
+  icons.go                      Bundled filled symbolic SVG icons, added to the icon theme search path
+  redesign.css                  Sizes for the tabbed view; px scaled by uiscale.ScaleCSS under gamescope
   tdp.go                        Custom profile view: TDP sliders, fan curve editor, undervolt, telemetry
   sync.go                       Daemon state sync and API send functions
   color.go                      colorInput widget + color picker view (math in internal/colorconv)
@@ -71,6 +78,8 @@ internal/theme/
   css.go                        @define-color generation from a Colors value
   config.go                     Config persistence (selected theme/accent)
   *_test.go                     Theme parsing, CSS generation, and built-in completeness tests
+internal/system/                Display (kscreen JSON), battery uevent math, power History ring +
+                                graph mapping, charge-limit decisions, prefs.conf (separate from config.toml)
 internal/power/                 Limits value: TDP/fan bounds + rules (mirrors z13ctl internal/cli)
 internal/daemon/                Err(handled, err): collapses an api result pair into one error
 internal/focusgrid/             Gamepad focus navigation: row/col/section index math
@@ -85,6 +94,33 @@ contrib/
   z13gui.service                systemd user service (EnvironmentFile for gamescope-session)
   z13gui.desktop                Desktop entry
 ```
+
+## Redesign (richardklint fork)
+
+The main view is a three-tab stack (Power / Lighting / Display) with a bottom tab
+bar, built for touch: 48px+ targets, switch rows that toggle from anywhere on the
+row (the switch itself has `SetCanTarget(false)`; the row is a `gtk.Button`, so it
+needs no gamescope touch workaround). The old bottom bar and battery slider are
+gone; overdrive/boot sound/theme live on the Display tab.
+
+- Gamepad: one focus grid per tab (`w.tabFocus`), header at row 0, tab bar at
+  `navRow`; on the main view the shoulder buttons switch tabs. `showMainView`
+  swaps in the current tab's grid. Rebuild the grids (`buildTabFocusLists`)
+  whenever a tab's widgets change (refresh-rate buttons appear after the probe).
+- Desktop integrations are probed once at startup (`probeDesktopCaps`) and their
+  rows hidden when absent (gamescope, GNOME): kscreen-doctor (rotation, refresh),
+  `org.kde.ScreenBrightness` (brightness), KWin `VirtualKeyboard` (OSK), the
+  amdgpu DPM level file (GPU clocks). All run through `busctl`/`kscreen-doctor`
+  in goroutines with a 5s timeout.
+- APU power is sampled once a second for the life of the process into a
+  `system.History`, so the graph has a minute of data on open.
+- Charge limit off = daemon limit 100. With "re-enable after unplugging", the
+  power-source event (and startup) restores `prefs.ChargeLimit` once AC is
+  offline; `PendingRestore` is persisted in prefs.conf so a restart mid-charge
+  still restores it.
+- "Game performance" = performance profile; its "Force GPU clocks high"
+  sub-switch writes the DPM level and is released when game performance is
+  turned off.
 
 ## Key architectural decisions
 

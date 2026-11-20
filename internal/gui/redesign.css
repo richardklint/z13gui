@@ -1,0 +1,179 @@
+/* SPDX-License-Identifier: Apache-2.0
+   Structural CSS for the tabbed main view: sizes, spacing, radii. Colours are in
+   theme-default.css so every theme styles them.
+
+   Every px value here is multiplied by the gamescope scale factor through
+   uiscale.ScaleCSS, so this file is the single source for both backends.
+   Touch targets are 48px or more throughout. */
+
+.drawer {
+    font-size: 14px;
+}
+
+/* Header */
+.drawer-header {
+    padding: 10px 8px 10px 16px;
+}
+.header-title {
+    font-size: 16px;
+    font-weight: bold;
+}
+.drawer .header-telemetry {
+    font-size: 12px;
+    letter-spacing: 0;
+}
+.header-btn {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0;
+    border-radius: 12px;
+    -gtk-icon-size: 22px;
+}
+
+/* Bottom tab bar */
+.tab-bar {
+    padding: 8px;
+}
+.tab-bar-btn {
+    min-height: 64px;
+    padding: 0;
+    border-radius: 14px;
+}
+.tab-pill {
+    min-width: 56px;
+    min-height: 30px;
+    border-radius: 15px;
+    -gtk-icon-size: 20px;
+}
+.tab-label {
+    font-size: 12px;
+}
+.tab-bar-btn.active .tab-label {
+    font-weight: 600;
+}
+
+/* Cards and rows */
+.card {
+    border-radius: 16px;
+}
+.card-padded {
+    padding: 14px 14px 10px 14px;
+}
+.card-block {
+    padding: 12px 14px;
+}
+.card-block-tight {
+    padding-top: 0;
+}
+.card-sep {
+    min-height: 1px;
+}
+.switch-row {
+    min-height: 64px;
+    padding: 8px 14px;
+    border-radius: 0;
+}
+.switch-row-sub {
+    padding-left: 28px;
+}
+.row-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+.row-sub {
+    font-size: 12px;
+}
+.row-value {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Switches: large enough to read at a glance; the row is the tap target. */
+.switch-row switch {
+    min-width: 56px;
+    min-height: 32px;
+    border-radius: 16px;
+}
+.switch-row switch slider {
+    min-width: 26px;
+    min-height: 26px;
+    border-radius: 13px;
+    margin: 3px;
+}
+
+/* Power card */
+.power-value {
+    font-size: 28px;
+    font-weight: bold;
+}
+.power-unit {
+    font-size: 14px;
+}
+.power-graph {
+    min-height: 56px;
+    margin: 4px 0;
+}
+.stat {
+    font-size: 12px;
+}
+.stat-value {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Battery */
+.batt-level {
+    min-width: 46px;
+}
+.batt-level trough {
+    min-height: 22px;
+    padding: 2px;
+    border-radius: 5px;
+}
+.batt-level block {
+    min-height: 18px;
+    border-radius: 3px;
+}
+.batt-pct {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* Button groups: profiles, presets, rates, orientations. */
+.drawer .btn-group button {
+    min-height: 52px;
+    border-radius: 12px;
+}
+.drawer .orient-btn {
+    min-height: 56px;
+}
+.rate-hz {
+    font-size: 14px;
+    font-weight: bold;
+}
+.rate-hint {
+    font-size: 11px;
+}
+
+/* Lighting: colour presets tall enough to tap. */
+.drawer .color-preset {
+    min-height: 40px;
+    border-radius: 8px;
+}
+.drawer .color-swatch {
+    min-height: 40px;
+    min-width: 40px;
+    border-radius: 8px;
+}
+
+/* Screen brightness slider. */
+scale.big-scale trough {
+    min-height: 12px;
+    border-radius: 6px;
+}
+scale.big-scale slider {
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 16px;
+    margin: -10px 0;
+}

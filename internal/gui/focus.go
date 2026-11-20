@@ -205,7 +205,7 @@ func (w *Window) ensureVisible(widget gtk.Widgetter) {
 	if w.viewStack != nil {
 		switch w.viewStack.VisibleChildName() {
 		case "main":
-			scroll = w.mainScroll
+			scroll = w.tabScrolls[w.curTab]
 		case "theme":
 			scroll = w.themeScroll
 		case "custom":

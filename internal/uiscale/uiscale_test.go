@@ -115,3 +115,14 @@ func TestReferenceWidthGivesUnityScale(t *testing.T) {
 		t.Errorf("For(ReferenceWidth) = %v, want 1.0 — the constant defines the unity point", got)
 	}
 }
+
+func TestScaleCSS(t *testing.T) {
+	in := ".a { min-height: 48px; margin: 0 -2px 0.5px 0; } .b { opacity: 0.5; }"
+	if got := ScaleCSS(in, 1); got != in {
+		t.Errorf("scale 1 changed css: %q", got)
+	}
+	want := ".a { min-height: 72px; margin: 0 -3px 0.8px 0; } .b { opacity: 0.5; }"
+	if got := ScaleCSS(in, 1.5); got != want {
+		t.Errorf("ScaleCSS = %q, want %q", got, want)
+	}
+}

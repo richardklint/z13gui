@@ -26,8 +26,10 @@ import (
 	"github.com/dahui/z13gui/internal/gui/layershell"
 	"github.com/dahui/z13gui/internal/gui/overlay"
 	"github.com/dahui/z13gui/internal/power"
+	"github.com/dahui/z13gui/internal/system"
 	"github.com/dahui/z13gui/internal/theme"
 	"github.com/dahui/z13gui/internal/togglegate"
+	"github.com/dahui/z13gui/internal/uiscale"
 	"github.com/diamondburned/gotk4-layer-shell/pkg/gtk4layershell"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -36,6 +38,12 @@ import (
 
 //go:embed layout.css
 var layoutCSS string
+
+// redesignCSS styles the tabbed main view. Its px values are scaled for
+// gamescope by uiscale.ScaleCSS rather than a hand-kept override list.
+//
+//go:embed redesign.css
+var redesignCSS string
 
 //go:embed theme-default.css
 var defaultThemeCSS string
@@ -112,9 +120,60 @@ type Window struct {
 	speedBtns       map[string]*gtk.Button
 	brightScale     *gtk.Scale
 	profileBtns     map[string]*gtk.Button
-	battScale       *gtk.Scale
 	overdriveSwitch *gtk.Switch
 	bootSoundSwitch *gtk.Switch
+
+	// Tabbed main view (tabs.go, features.go).
+	prefs      system.Prefs
+	caps       desktopCaps
+	sens       sensors
+	powerHist  *system.History
+	lastBatt   *system.Battery
+	tabStack   *gtk.Stack
+	tabBtns    map[string]*gtk.Button
+	tabScrolls map[string]*gtk.ScrolledWindow
+	tabFocus   map[string][]focusItem
+	curTab     string
+	oskBtn     *gtk.Button
+	closeBtn   *gtk.Button
+	// Power tab.
+	powerValue     *gtk.Label
+	powerGraph     *gtk.DrawingArea
+	cpuTempLbl     *gtk.Label
+	gpuTempLbl     *gtk.Label
+	fanLbl         *gtk.Label
+	gameRow        *switchRow
+	gpuHighRow     *switchRow
+	battLevel      *gtk.LevelBar
+	battPctLbl     *gtk.Label
+	battStatusLbl  *gtk.Label
+	battHealthLbl  *gtk.Label
+	battCapLbl     *gtk.Label
+	battRateLbl    *gtk.Label
+	limitRow       *switchRow
+	limitPresetBox *gtk.Box
+	limitBtns      map[int]*gtk.Button
+	restoreRow     *switchRow
+	// Display tab.
+	display         system.Display
+	screenCard      *gtk.Box
+	screenBrightBox *gtk.Box
+	screenBright    *gtk.Scale
+	screenBrightLbl *gtk.Label
+	brightMax       int
+	brightTimer     *time.Timer
+	rateBox         *gtk.Box
+	rateRow         *gtk.Box
+	rates           []system.Rate
+	rateBtns        map[string]*gtk.Button
+	rotCard         *gtk.Box
+	rotRow          *switchRow
+	orientBtns      map[int]*gtk.Button
+	policyBtns      map[string]*gtk.Button
+	overdriveRow    *switchRow
+	bootSoundRow    *switchRow
+	themeRow        *gtk.Button
+	themeNameLbl    *gtk.Label
 
 	// Custom profile view.
 	customScroll       *gtk.ScrolledWindow
@@ -152,7 +211,6 @@ type Window struct {
 	applyTimer *time.Timer // debounce for continuous inputs (brightness, color wheel)
 
 	// View switching (main/theme/color views).
-	mainScroll         *gtk.ScrolledWindow // scrollable area in main drawer view
 	themeScroll        *gtk.ScrolledWindow // scrollable area in theme picker view
 	viewStack          *gtk.Stack          // switches between main/theme/color views
 	editingColor       *colorInput         // which color the color-picker view is editing
@@ -163,7 +221,6 @@ type Window struct {
 	colorPreview       *gtk.Box            // swatch preview in color view
 	colorHexLabel      *gtk.Label          // hex display in color view
 	colorSwatchProv    *gtk.CSSProvider    // color picker preview swatch CSS
-	paletteBtn         *gtk.Button         // theme button in bottom bar
 	themeBackBtn       *gtk.Button         // back button in theme view
 	colorBackBtn       *gtk.Button         // back button in color picker view
 	colorPickerPresets []*gtk.Button       // preset buttons in color picker view
@@ -228,6 +285,15 @@ func New(app *gtk.Application) *Window {
 		modeButtons: make(map[string]*gtk.Button),
 		speedBtns:   make(map[string]*gtk.Button),
 		profileBtns: make(map[string]*gtk.Button),
+		prefs:       system.LoadPrefs(),
+		sens:        findSensors(),
+		powerHist:   system.NewHistory(powerHistorySamples),
+		tabBtns:     make(map[string]*gtk.Button),
+		tabScrolls:  make(map[string]*gtk.ScrolledWindow),
+		limitBtns:   make(map[int]*gtk.Button),
+		rateBtns:    make(map[string]*gtk.Button),
+		orientBtns:  make(map[int]*gtk.Button),
+		policyBtns:  make(map[string]*gtk.Button),
 	}
 
 	w.win = gtk.NewApplicationWindow(app)
@@ -266,6 +332,7 @@ func New(app *gtk.Application) *Window {
 
 	// Load CSS (layout + theme).
 	w.loadCSS()
+	installIcons()
 
 	// Swatch provider: separate from theme so we can update it per-color at runtime.
 	w.swatchProvider = gtk.NewCSSProvider()
@@ -277,6 +344,9 @@ func New(app *gtk.Application) *Window {
 	w.syncing = false
 
 	go w.subscribeLoop()
+	startPowerSampler(w.sens, w.powerHist)
+	w.probeDesktop()
+	w.checkChargeRestore()
 
 	// Gamepad input (disabled with Z13GUI_NO_GAMEPAD=1).
 	if os.Getenv("Z13GUI_NO_GAMEPAD") == "" {
@@ -377,6 +447,7 @@ func (w *Window) show() {
 	}
 	w.backend.Show()
 	w.startTelemetryPolling()
+	w.refreshDesktop()
 }
 
 // hide delegates to the display backend. Resets to main view so the drawer
@@ -411,10 +482,7 @@ func (w *Window) hide() {
 	w.hideGamepadFocus()
 	w.clearError()   // don't greet the next open with a stale failure
 	w.telemetryGen++ // stop any running telemetry poll
-	if w.viewStack != nil {
-		w.viewStack.SetVisibleChildName("main")
-		w.swapFocusList(w.mainFocusItems)
-	}
+	w.showMainView()
 	w.backend.Hide()
 }
 
@@ -464,16 +532,21 @@ func (w *Window) handleGamepadAction(action gamepad.Action) {
 		default:
 			w.hide()
 		}
-	case gamepad.ActionBumpL:
+	case gamepad.ActionBumpL, gamepad.ActionBumpR:
 		if w.focusEditing {
 			w.exitEditMode(true)
 		}
-		w.jumpSection(-1)
-	case gamepad.ActionBumpR:
-		if w.focusEditing {
-			w.exitEditMode(true)
+		dir := 1
+		if action == gamepad.ActionBumpL {
+			dir = -1
 		}
-		w.jumpSection(1)
+		// On the main view the shoulders switch tabs, like any tabbed console
+		// UI; the sub-views keep section jumping.
+		if w.viewStack != nil && w.viewStack.VisibleChildName() == "main" {
+			w.cycleTab(dir)
+		} else {
+			w.jumpSection(dir)
+		}
 	}
 }
 
@@ -518,6 +591,9 @@ func (w *Window) subscribeLoop() {
 				})
 				glib.MainContextDefault().Wakeup()
 			case api.EventPowerSource, api.EventStateChanged:
+				if event == api.EventPowerSource {
+					glib.IdleAdd(w.checkChargeRestore)
+				}
 				// Events carry no payload by design; get-state answers with
 				// current truth. Called inline rather than on a goroutine so a
 				// burst of events refreshes sequentially instead of racing
@@ -543,6 +619,16 @@ func (w *Window) loadCSS() {
 	layout := gtk.NewCSSProvider()
 	layout.LoadFromString(layoutCSS)
 	gtk.StyleContextAddProviderForDisplay(display, layout, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+	scale := 1.0
+	if w.backend != nil && w.backend.Scale() > 0 {
+		scale = w.backend.Scale()
+	}
+	redesign := gtk.NewCSSProvider()
+	redesign.LoadFromString(uiscale.ScaleCSS(redesignCSS, scale))
+	// Above the gamescope backend's own overrides (APPLICATION+1), so the
+	// redesign's touch sizes win for the selectors both of them style.
+	gtk.StyleContextAddProviderForDisplay(display, redesign, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION+2)
 
 	w.themeProvider = gtk.NewCSSProvider()
 	base := theme.XDGConfigHome()
@@ -641,6 +727,10 @@ func (w *Window) applyTheme(id, accentID string) {
 	gtk.StyleContextAddProviderForDisplay(display, w.themeProvider, gtk.STYLE_PROVIDER_PRIORITY_USER)
 	theme.SaveAppConfig(theme.AppConfig{Theme: id, Accent: accentID})
 	w.redrawFanCurve()
+	w.updateThemeName()
+	if w.powerGraph != nil {
+		w.powerGraph.QueueDraw()
+	}
 	slog.Info("theme changed", "id", id, "accent", accentID)
 }
 
@@ -671,6 +761,10 @@ func (w *Window) applyCustomAccent(accentID string) {
 	cfg.Accent = accentID
 	theme.SaveAppConfig(cfg)
 	w.redrawFanCurve()
+	w.updateThemeName()
+	if w.powerGraph != nil {
+		w.powerGraph.QueueDraw()
+	}
 }
 
 // redrawFanCurve repaints the fan curve chart after a theme change. It is drawn

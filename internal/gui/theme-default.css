@@ -263,3 +263,98 @@ window.z13-drawer-window {
 .gamepad-editing {
     outline-color: @z13-accent;
 }
+
+/* ---- Tabbed main view (redesign.css holds the sizes) ---- */
+.drawer-header {
+    border-bottom: 1px solid @z13-border;
+}
+.header-title {
+    color: @z13-text;
+}
+.header-btn {
+    background: @z13-surface;
+    color: @z13-text;
+    border: none;
+    box-shadow: none;
+}
+.header-btn:hover {
+    background: @z13-surface-alt;
+}
+.tab-bar {
+    background: shade(@z13-bg, 0.85);
+    border-top: 1px solid @z13-border;
+}
+.tab-bar-btn {
+    background: transparent;
+    color: mix(@z13-text-dim, @z13-text, 0.4);
+    border: none;
+    box-shadow: none;
+}
+.tab-bar-btn:hover .tab-pill {
+    background: @z13-surface;
+}
+.tab-bar-btn.active {
+    color: @z13-text;
+}
+.tab-bar-btn.active .tab-pill {
+    background: alpha(@z13-accent, 0.4);
+}
+.card {
+    background: @z13-surface;
+}
+.drawer .card-sep {
+    background: @z13-border;
+}
+.switch-row {
+    background: transparent;
+    color: @z13-text;
+    border: none;
+    box-shadow: none;
+}
+.switch-row:hover {
+    background: @z13-surface-alt;
+}
+/* Secondary text, mixed towards the text colour: several built-in themes set a
+   text-dim too faint to read at 12px on their surface colour. */
+.row-sub,
+.stat,
+.power-unit {
+    color: mix(@z13-text-dim, @z13-text, 0.4);
+}
+.row-warn {
+    color: @z13-error;
+}
+.row-value,
+.stat-value,
+.batt-pct,
+.power-value {
+    color: @z13-text;
+}
+.drawer switch {
+    background: @z13-surface-alt;
+    border: none;
+}
+.drawer switch:checked {
+    background: @z13-accent;
+}
+.drawer switch slider {
+    background: @z13-text;
+    border: none;
+    box-shadow: none;
+}
+.batt-level trough {
+    background: @z13-bg;
+    border: 2px solid @z13-text;
+}
+.batt-level block.empty {
+    background: transparent;
+}
+.batt-level block.filled,
+.batt-level block.low,
+.batt-level block.high,
+.batt-level block.full {
+    background: @z13-accent;
+}
+.rate-hint {
+    opacity: 0.8;
+}

@@ -16,7 +16,9 @@ package uiscale
 
 import (
 	"math"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -93,4 +95,24 @@ func clamp(v float64) float64 {
 		return Max
 	}
 	return v
+}
+
+// pxValue matches a CSS pixel length such as "48px", "0.5px" or "-2px".
+var pxValue = regexp.MustCompile(`(-?\d+(?:\.\d+)?)px`)
+
+// ScaleCSS multiplies every px length in css by s, rounding to one decimal.
+// The redesign stylesheet goes through this instead of a hand-written gamescope
+// override per rule: a hand-kept list drifts the moment a rule is added to one
+// side and not the other, which is how the error bar shipped unscaled.
+func ScaleCSS(css string, s float64) string {
+	if s == 1 {
+		return css
+	}
+	return pxValue.ReplaceAllStringFunc(css, func(m string) string {
+		v, err := strconv.ParseFloat(strings.TrimSuffix(m, "px"), 64)
+		if err != nil {
+			return m
+		}
+		return strconv.FormatFloat(math.Round(v*s*10)/10, 'f', -1, 64) + "px"
+	})
 }
