@@ -2,6 +2,8 @@
 
 package system
 
+import "time"
+
 // FullCharge is the limit value that means "no limit".
 const FullCharge = 100
 
@@ -30,4 +32,13 @@ func PreferredLimit(saved int) int {
 // machine whose adapter cannot be read keeps the user's explicit choice.
 func ShouldRestore(pending, acKnown, acOnline bool) bool {
 	return pending && acKnown && !acOnline
+}
+
+// ReprobeDue decides whether to look again for desktop integrations that were
+// missing: only while some are missing, and at most once per every.
+func ReprobeDue(complete bool, last, now time.Time, every time.Duration) bool {
+	if complete {
+		return false
+	}
+	return last.IsZero() || now.Sub(last) >= every
 }

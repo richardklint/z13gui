@@ -107,8 +107,12 @@ gone; overdrive/boot sound/theme live on the Display tab.
   `navRow`; on the main view the shoulder buttons switch tabs. `showMainView`
   swaps in the current tab's grid. Rebuild the grids (`buildTabFocusLists`)
   whenever a tab's widgets change (refresh-rate buttons appear after the probe).
-- Desktop integrations are probed once at startup (`probeDesktopCaps`) and their
-  rows hidden when absent (gamescope, GNOME): kscreen-doctor (rotation, refresh),
+- Desktop integrations are probed at startup (`probeDesktopCaps`) and their
+  rows hidden when absent (gamescope, GNOME). While any is missing, each show
+  re-probes the missing ones (`maybeReprobe`, throttled to 5s by
+  `system.ReprobeDue`): KDE's brightness and keyboard services can come up
+  after z13gui at login, and a one-shot probe left those rows hidden for the
+  whole session. A found integration is never dropped. Integrations: kscreen-doctor (rotation, refresh),
   `org.kde.ScreenBrightness` (brightness), KWin `VirtualKeyboard` (OSK), the
   Feral GameMode (`ClientCount`, header badge). All run through `busctl`/`kscreen-doctor`
   in goroutines with a 5s timeout.

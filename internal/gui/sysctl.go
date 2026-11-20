@@ -64,20 +64,37 @@ type desktopCaps struct {
 	gamemode   bool // Feral GameMode daemon answering
 }
 
-func probeDesktopCaps() desktopCaps {
-	var c desktopCaps
-	if _, err := exec.LookPath("kscreen-doctor"); err == nil {
-		_, err := readDisplay()
-		c.kscreen = err == nil
+// complete reports whether every integration has been found, i.e. there is
+// nothing left worth probing for.
+func (c desktopCaps) complete() bool {
+	return c.kscreen && c.brightness && c.osk && c.gamemode
+}
+
+// probeDesktopCaps checks for each integration not already in have. A found
+// integration is never re-checked or dropped: the probe is for services that
+// were not up yet (KDE's brightness and keyboard services can start after
+// z13gui at login), not for health monitoring — a failing call reports itself.
+func probeDesktopCaps(have desktopCaps) desktopCaps {
+	c := have
+	if !c.kscreen {
+		if _, err := exec.LookPath("kscreen-doctor"); err == nil {
+			_, err := readDisplay()
+			c.kscreen = err == nil
+		}
 	}
 	if _, err := exec.LookPath("busctl"); err == nil {
-		_, _, err := readBrightness()
-		c.brightness = err == nil
-		v, err := busctlGet("org.kde.KWin", "/VirtualKeyboard", "org.kde.kwin.VirtualKeyboard", "available")
-		c.osk = err == nil && v == "b true"
-	}
-	if _, err := gameModeClients(); err == nil {
-		c.gamemode = true
+		if !c.brightness {
+			_, _, err := readBrightness()
+			c.brightness = err == nil
+		}
+		if !c.osk {
+			v, err := busctlGet("org.kde.KWin", "/VirtualKeyboard", "org.kde.kwin.VirtualKeyboard", "available")
+			c.osk = err == nil && v == "b true"
+		}
+		if !c.gamemode {
+			_, err := gameModeClients()
+			c.gamemode = err == nil
+		}
 	}
 	return c
 }

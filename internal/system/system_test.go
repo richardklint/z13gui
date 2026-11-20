@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // A trimmed `kscreen-doctor -j` from a GZ302EA: the panel offers several rates
@@ -357,5 +358,22 @@ func TestSnapStep(t *testing.T) {
 		if c.got != c.want {
 			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)
 		}
+	}
+}
+
+func TestReprobeDue(t *testing.T) {
+	now := time.Unix(1000, 0)
+	every := 30 * time.Second
+	if ReprobeDue(true, time.Time{}, now, every) {
+		t.Error("nothing missing: never reprobe")
+	}
+	if !ReprobeDue(false, time.Time{}, now, every) {
+		t.Error("never probed: reprobe")
+	}
+	if ReprobeDue(false, now.Add(-10*time.Second), now, every) {
+		t.Error("probed 10s ago: throttled")
+	}
+	if !ReprobeDue(false, now.Add(-30*time.Second), now, every) {
+		t.Error("probed 30s ago: due")
 	}
 }

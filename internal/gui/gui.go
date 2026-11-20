@@ -124,19 +124,23 @@ type Window struct {
 	bootSoundSwitch *gtk.Switch
 
 	// Tabbed main view (tabs.go, features.go).
-	prefs      system.Prefs
-	caps       desktopCaps
-	sens       sensors
-	powerHist  *system.History
-	lastBatt   *system.Battery
-	tabStack   *gtk.Stack
-	tabBtns    map[string]*gtk.Button
-	tabScrolls map[string]*gtk.ScrolledWindow
-	tabFocus   map[string][]focusItem
-	curTab     string
-	oskBtn     *gtk.Button
-	gameBadge  *gtk.Label
-	closeBtn   *gtk.Button
+	prefs system.Prefs
+	caps  desktopCaps
+	// Desktop-integration probe state (main thread only).
+	capsProbing    bool
+	capsProbedOnce bool
+	capsProbedAt   time.Time
+	sens           sensors
+	powerHist      *system.History
+	lastBatt       *system.Battery
+	tabStack       *gtk.Stack
+	tabBtns        map[string]*gtk.Button
+	tabScrolls     map[string]*gtk.ScrolledWindow
+	tabFocus       map[string][]focusItem
+	curTab         string
+	oskBtn         *gtk.Button
+	gameBadge      *gtk.Label
+	closeBtn       *gtk.Button
 	// Power tab.
 	powerValue     *gtk.Label
 	powerGraph     *gtk.DrawingArea
@@ -448,6 +452,7 @@ func (w *Window) show() {
 	}
 	w.backend.Show()
 	w.startTelemetryPolling()
+	w.maybeReprobe()
 	w.refreshDesktop()
 }
 

@@ -49,15 +49,42 @@ func startPowerSampler(s sensors, h *system.History) {
 	}()
 }
 
-// probeDesktop finds out which desktop integrations this session has and
-// shows the matching rows. Runs once at startup, off the GTK thread.
+// capsReprobeEvery throttles re-probing for integrations still missing. On a
+// desktop that will never have them (GNOME, gamescope) it bounds the cost to a
+// few short commands per five seconds of drawer use.
+const capsReprobeEvery = 5 * time.Second
+
+// probeDesktop checks for the desktop integrations not yet found and shows
+// the matching rows. Runs at startup and again on show while any are missing
+// (see maybeReprobe), off the GTK thread.
 func (w *Window) probeDesktop() {
+	if w.capsProbing {
+		return
+	}
+	w.capsProbing = true
+	w.capsProbedAt = time.Now()
+	have := w.caps
+	first := !w.capsProbedOnce // always log the startup result
+	w.capsProbedOnce = true
 	go func() {
-		c := probeDesktopCaps()
-		slog.Info("desktop integrations", "kscreen", c.kscreen, "brightness", c.brightness,
-			"osk", c.osk, "gamemode", c.gamemode)
-		glib.IdleAdd(func() { w.applyCaps(c) })
+		c := probeDesktopCaps(have)
+		glib.IdleAdd(func() {
+			w.capsProbing = false
+			if c == w.caps && !first {
+				return
+			}
+			slog.Info("desktop integrations", "kscreen", c.kscreen, "brightness", c.brightness,
+				"osk", c.osk, "gamemode", c.gamemode)
+			w.applyCaps(c)
+		})
 	}()
+}
+
+// maybeReprobe re-runs the probe on show while an integration is missing.
+func (w *Window) maybeReprobe() {
+	if system.ReprobeDue(w.caps.complete(), w.capsProbedAt, time.Now(), capsReprobeEvery) {
+		w.probeDesktop()
+	}
 }
 
 func (w *Window) applyCaps(c desktopCaps) {
