@@ -282,7 +282,7 @@ window.z13-drawer-window {
 }
 .tab-bar {
     background: shade(@z13-bg, 0.85);
-    border-top: 1px solid @z13-border;
+    border-bottom: 1px solid @z13-border;
 }
 .tab-bar-btn {
     background: transparent;

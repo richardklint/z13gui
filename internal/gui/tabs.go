@@ -2,13 +2,13 @@
 
 package gui
 
-// tabs.go — the main view: header (title, telemetry, on-screen keyboard,
-// close), a three-page stack (Power, Lighting, Display) and the bottom tab bar.
+// tabs.go — the main view: header (title, telemetry, rotation lock,
+// on-screen keyboard, close), the tab bar, and a three-page stack (Power,
+// Lighting, Display).
 //
-// Built for touch first: every target is at least 48px, a switch row toggles
-// from anywhere on the row, and the tab bar sits at the bottom where a thumb
-// rests. The tab bar, header buttons and every row are also in a per-tab
-// gamepad focus grid; the shoulder buttons switch tabs.
+// Built for touch first: every target is at least 48px and a switch row
+// toggles from anywhere on the row. The tab bar, header buttons and every row
+// are also in a per-tab gamepad focus grid; the shoulder buttons switch tabs.
 
 import (
 	"fmt"
@@ -23,10 +23,10 @@ const (
 	tabLighting = "lighting"
 	tabDisplay  = "display"
 
-	// navRow and headerRow bracket every tab's focus grid: header first, tab bar
-	// last (before the error bar at errBarRow).
-	headerRow = 0
-	navRow    = 9000
+	// headerRow and navRow come before every tab's content rows (1 and up),
+	// matching the layout: header, then the tab bar, then the page.
+	headerRow = -2
+	navRow    = -1
 )
 
 var tabOrder = []string{tabPower, tabLighting, tabDisplay}
@@ -148,8 +148,9 @@ func (w *Window) buildMainView() *gtk.Box {
 		w.tabScrolls[t] = scroll
 		w.tabStack.AddNamed(scroll, t)
 	}
-	main.Append(w.tabStack)
+	// Tab bar under the header, above the pages.
 	main.Append(w.buildTabBar())
+	main.Append(w.tabStack)
 
 	w.buildTabFocusLists()
 	w.selectTab(w.prefs.Tab)

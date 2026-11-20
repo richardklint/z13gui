@@ -97,14 +97,14 @@ contrib/
 
 ## Redesign (richardklint fork)
 
-The main view is a three-tab stack (Power / Lighting / Display) with a bottom tab
-bar, built for touch: 48px+ targets, switch rows that toggle from anywhere on the
+The main view is a three-tab stack (Power / Lighting / Display) with the tab
+bar under the header, built for touch: 48px+ targets, switch rows that toggle from anywhere on the
 row (the switch itself has `SetCanTarget(false)`; the row is a `gtk.Button`, so it
 needs no gamescope touch workaround). The old bottom bar and battery slider are
 gone; overdrive/boot sound/theme live on the Display tab.
 
-- Gamepad: one focus grid per tab (`w.tabFocus`), header at row 0, tab bar at
-  `navRow`; on the main view the shoulder buttons switch tabs. `showMainView`
+- Gamepad: one focus grid per tab (`w.tabFocus`), header at `headerRow` (-2), tab bar at
+  `navRow` (-1), content from row 1; on the main view the shoulder buttons switch tabs. `showMainView`
   swaps in the current tab's grid. Rebuild the grids (`buildTabFocusLists`)
   whenever a tab's widgets change (refresh-rate buttons appear after the probe).
 - Desktop integrations are probed at startup (`probeDesktopCaps`) and their
