@@ -109,6 +109,9 @@ func (w *Window) buildThemeView() *gtk.Box {
 	content.SetMarginBottom(12)
 	content.SetMarginStart(12)
 	content.SetMarginEnd(12)
+	if !w.isCustomTheme && !w.customCSSTheme {
+		content.Append(w.buildFollowCard())
+	}
 	w.appendThemeChoices(content)
 
 	scroll := newDrawerScroll(content)
@@ -138,7 +141,7 @@ func (w *Window) appendThemeChoices(box *gtk.Box) {
 			btn.SetActive(true)
 		}
 		btn.ConnectToggled(func() {
-			if btn.Active() {
+			if btn.Active() && !w.syncing {
 				// Selecting the theme itself means its default accent, so no dot is
 				// the active one. A dot click re-marks itself afterwards.
 				w.setActiveAccentDot(nil)
@@ -387,6 +390,9 @@ func (w *Window) showThemeView() {
 		w.viewStack.AddNamed(w.buildThemeView(), "theme")
 		w.buildThemeFocusList()
 	}
+	// Open on the slot for the mode the system is in now.
+	w.themeSlotDark = w.sysDark
+	w.syncThemePicker()
 	w.viewStack.SetVisibleChildName("theme")
 	w.swapFocusList(w.themeFocusItems)
 }
@@ -604,7 +610,19 @@ func (w *Window) buildThemeFocusList() {
 		})
 	}
 
-	row := 1
+	if w.followRow != nil {
+		items = append(items, w.followRow.focus(1, "follow", nil))
+		for col, dark := range []bool{false, true} {
+			b := w.slotBtns[dark]
+			items = append(items, focusItem{
+				widget: b, row: 2, col: col, section: "follow",
+				isVisible:  visibleFn(w.slotBox),
+				onActivate: func() { b.Activate() },
+			})
+		}
+	}
+
+	row := 3
 	for i, btn := range w.themeRadios {
 		btn := btn
 		items = append(items, focusItem{

@@ -127,6 +127,15 @@ gone; overdrive/boot sound/theme live on the Display tab.
   is deliberately no game-performance toggle or GPU-level control: forcing the
   amdgpu DPM level to high alongside profile writes was implicated in an SMU hang.
 
+- Themes can follow the desktop's light/dark preference (`appearance.go`):
+  the XDG portal `org.freedesktop.appearance color-scheme` is read at startup
+  and tracked via the portal's `SettingChanged` signal (gio subscription on the
+  main context, `w.sessionBus` keeps it alive). `AppConfig.FollowSystem` plus
+  Light/Dark theme+accent slots; `Effective(dark)` picks, `SetSlot` stores a
+  pick in the slot being edited. `applyTheme` = record + `applyEffectiveTheme`;
+  `renderTheme` only swaps CSS. theme.toml/theme.css overrides disable it.
+  One Dark was added as One Light's dark pair (matching accent sets).
+
 ## Key architectural decisions
 
 - **Never call into gtk4-layer-shell without checking `IsSupported()` first.**

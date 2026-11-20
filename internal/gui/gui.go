@@ -32,6 +32,7 @@ import (
 	"github.com/dahui/z13gui/internal/uiscale"
 	"github.com/diamondburned/gotk4-layer-shell/pkg/gtk4layershell"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
+	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -126,6 +127,16 @@ type Window struct {
 	// Tabbed main view (tabs.go, features.go).
 	prefs system.Prefs
 	caps  desktopCaps
+	// System appearance (appearance.go).
+	sessionBus     *gio.DBusConnection
+	sysDark        bool // desktop prefers dark; true until the portal says otherwise
+	schemeKnown    bool
+	themeSlotDark  bool // which slot the theme list edits while following the system
+	customCSSTheme bool // ~/.config/z13gui/theme.css is in force
+	followRow      *switchRow
+	slotBox        *gtk.Box
+	slotBtns       map[bool]*gtk.Button
+	slotNameLbls   map[bool]*gtk.Label
 	// Desktop-integration probe state (main thread only).
 	capsProbing    bool
 	capsProbedOnce bool
@@ -291,6 +302,7 @@ func New(app *gtk.Application) *Window {
 		speedBtns:   make(map[string]*gtk.Button),
 		profileBtns: make(map[string]*gtk.Button),
 		prefs:       system.LoadPrefs(),
+		sysDark:     true,
 		sens:        findSensors(),
 		powerHist:   system.NewHistory(powerHistorySamples),
 		tabBtns:     make(map[string]*gtk.Button),
@@ -338,6 +350,7 @@ func New(app *gtk.Application) *Window {
 	// Load CSS (layout + theme).
 	w.loadCSS()
 	installIcons()
+	w.watchAppearance()
 
 	// Swatch provider: separate from theme so we can update it per-color at runtime.
 	w.swatchProvider = gtk.NewCSSProvider()
@@ -686,24 +699,28 @@ func (w *Window) loadCSS() {
 					"path", cssPath, "undefined", missing)
 			}
 			w.themeProvider.LoadFromString(string(data))
+			w.customCSSTheme = true
 			slog.Info("theme loaded", "source", "custom-css", "path", cssPath)
 			loaded = true
 		}
 	}
 	if !loaded {
 		cfg := theme.LoadAppConfig()
-		colors, ok := theme.BuiltinByID(cfg.Theme)
+		// sysDark is the startup default (dark) here; watchAppearance corrects
+		// it once the portal answers, re-theming if the system is light.
+		id, accentID := cfg.Effective(w.sysDark)
+		colors, ok := theme.BuiltinByID(id)
 		if !ok {
 			colors = theme.DefaultColors
 		}
-		if cfg.Accent != "" {
-			if hex, ok := theme.BuiltinAccentHex(cfg.Theme, cfg.Accent); ok {
+		if accentID != "" {
+			if hex, ok := theme.BuiltinAccentHex(id, accentID); ok {
 				colors.Accent = hex
 			}
 		}
 		w.colors = colors
 		w.themeProvider.LoadFromString(theme.BuildThemeCSS(colors, defaultThemeCSS))
-		slog.Info("theme loaded", "source", "builtin", "theme", cfg.Theme, "accent", cfg.Accent)
+		slog.Info("theme loaded", "source", "builtin", "theme", id, "accent", accentID, "followSystem", cfg.FollowSystem)
 	}
 
 	gtk.StyleContextAddProviderForDisplay(display, w.themeProvider, gtk.STYLE_PROVIDER_PRIORITY_USER)
@@ -712,7 +729,20 @@ func (w *Window) loadCSS() {
 // applyTheme hot-swaps the theme CSS provider and persists the selection to
 // config.toml. accentID may be "" to use the theme's default accent.
 // Must be called from the GTK main thread.
+// applyTheme records a theme picked in the theme view — in the slot being
+// edited when following the system, otherwise as the fixed theme — and shows
+// whatever is now effective.
 func (w *Window) applyTheme(id, accentID string) {
+	cfg := theme.LoadAppConfig()
+	cfg.SetSlot(w.themeSlotDark, id, accentID)
+	theme.SaveAppConfig(cfg)
+	w.applyEffectiveTheme()
+	w.syncThemePicker()
+}
+
+// renderTheme swaps the theme CSS to built-in id with accentID. It does not
+// touch the config.
+func (w *Window) renderTheme(id, accentID string) {
 	display := gdk.DisplayGetDefault()
 	if w.themeProvider != nil {
 		gtk.StyleContextRemoveProviderForDisplay(display, w.themeProvider)
@@ -731,7 +761,6 @@ func (w *Window) applyTheme(id, accentID string) {
 	w.colors = colors
 	w.themeProvider.LoadFromString(theme.BuildThemeCSS(colors, defaultThemeCSS))
 	gtk.StyleContextAddProviderForDisplay(display, w.themeProvider, gtk.STYLE_PROVIDER_PRIORITY_USER)
-	theme.SaveAppConfig(theme.AppConfig{Theme: id, Accent: accentID})
 	w.redrawFanCurve()
 	w.updateThemeName()
 	if w.powerGraph != nil {

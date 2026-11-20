@@ -135,3 +135,45 @@ func TestXDGConfigHome_Fallback(t *testing.T) {
 		t.Errorf("XDGConfigHome() = %q, want %q", got, want)
 	}
 }
+
+func TestAppConfig_FollowSystemRoundTrip(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	want := AppConfig{Theme: "rog-dark", FollowSystem: true,
+		LightTheme: "one-light", LightAccent: "green", DarkTheme: "one-dark", DarkAccent: "purple"}
+	SaveAppConfig(want)
+	if got := LoadAppConfig(); got != want {
+		t.Errorf("round trip = %+v, want %+v", got, want)
+	}
+}
+
+func TestAppConfig_Effective(t *testing.T) {
+	fixed := AppConfig{Theme: "nord", Accent: "x"}
+	if th, ac := fixed.Effective(false); th != "nord" || ac != "x" {
+		t.Errorf("not following: %s/%s", th, ac)
+	}
+	f := AppConfig{Theme: "nord", FollowSystem: true}
+	if th, _ := f.Effective(true); th != DefaultDarkTheme {
+		t.Errorf("empty dark slot = %s, want %s", th, DefaultDarkTheme)
+	}
+	if th, _ := f.Effective(false); th != DefaultLightTheme {
+		t.Errorf("empty light slot = %s, want %s", th, DefaultLightTheme)
+	}
+	f.DarkTheme, f.DarkAccent = "tokyo-night", ""
+	if th, _ := f.Effective(true); th != "tokyo-night" {
+		t.Errorf("dark slot = %s", th)
+	}
+}
+
+func TestAppConfig_SetSlot(t *testing.T) {
+	c := AppConfig{Theme: "nord"}
+	c.SetSlot(true, "one-dark", "red")
+	if c.Theme != "one-dark" || c.Accent != "red" || c.DarkTheme != "" {
+		t.Errorf("fixed mode should set Theme: %+v", c)
+	}
+	c = AppConfig{Theme: "nord", FollowSystem: true}
+	c.SetSlot(true, "one-dark", "red")
+	c.SetSlot(false, "one-light", "")
+	if c.Theme != "nord" || c.DarkTheme != "one-dark" || c.DarkAccent != "red" || c.LightTheme != "one-light" {
+		t.Errorf("follow mode should fill the slots and keep Theme: %+v", c)
+	}
+}

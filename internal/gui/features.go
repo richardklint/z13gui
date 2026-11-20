@@ -591,16 +591,15 @@ func (w *Window) updateThemeName() {
 	if w.themeNameLbl == nil {
 		return
 	}
-	if w.isCustomTheme {
+	if w.isCustomTheme || w.customCSSTheme {
 		w.themeNameLbl.SetLabel("Custom")
 		return
 	}
 	cfg := theme.LoadAppConfig()
-	name := cfg.Theme
-	for _, t := range theme.Builtins {
-		if t.ID == cfg.Theme {
-			name = t.Name
-		}
+	id, _ := cfg.Effective(w.sysDark)
+	name := theme.BuiltinName(id)
+	if cfg.FollowSystem {
+		name = "Following system · " + name
 	}
 	w.themeNameLbl.SetLabel(name)
 }

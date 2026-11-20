@@ -14,6 +14,53 @@ import (
 type AppConfig struct {
 	Theme  string // built-in theme ID; empty = use default
 	Accent string // accent ID within the theme; "" = use theme default
+
+	// FollowSystem picks the theme from the desktop's light/dark preference
+	// instead of Theme: LightTheme/LightAccent when the system is light,
+	// DarkTheme/DarkAccent when it is dark. Theme/Accent stay saved, so turning
+	// it off returns to the fixed choice.
+	FollowSystem bool
+	LightTheme   string
+	LightAccent  string
+	DarkTheme    string
+	DarkAccent   string
+}
+
+// Default slot themes for FollowSystem: the One pair, light and dark.
+const (
+	DefaultLightTheme = "one-light"
+	DefaultDarkTheme  = "one-dark"
+)
+
+// Effective returns the theme and accent to show, given whether the system is
+// in dark mode. Empty slots fall back to the One pair.
+func (c AppConfig) Effective(systemDark bool) (themeID, accentID string) {
+	if !c.FollowSystem {
+		return c.Theme, c.Accent
+	}
+	if systemDark {
+		if c.DarkTheme == "" {
+			return DefaultDarkTheme, ""
+		}
+		return c.DarkTheme, c.DarkAccent
+	}
+	if c.LightTheme == "" {
+		return DefaultLightTheme, ""
+	}
+	return c.LightTheme, c.LightAccent
+}
+
+// SetSlot stores a theme choice where it belongs: the dark or light slot when
+// following the system, otherwise the fixed Theme/Accent.
+func (c *AppConfig) SetSlot(dark bool, themeID, accentID string) {
+	switch {
+	case !c.FollowSystem:
+		c.Theme, c.Accent = themeID, accentID
+	case dark:
+		c.DarkTheme, c.DarkAccent = themeID, accentID
+	default:
+		c.LightTheme, c.LightAccent = themeID, accentID
+	}
 }
 
 // LoadAppConfig reads ~/.config/z13gui/config.toml.
@@ -46,6 +93,16 @@ func LoadAppConfig() AppConfig {
 			}
 		case "accent":
 			cfg.Accent = v
+		case "follow_system":
+			cfg.FollowSystem = v == "true"
+		case "light_theme":
+			cfg.LightTheme = v
+		case "light_accent":
+			cfg.LightAccent = v
+		case "dark_theme":
+			cfg.DarkTheme = v
+		case "dark_accent":
+			cfg.DarkAccent = v
 		}
 	}
 	return cfg
@@ -61,6 +118,17 @@ func SaveAppConfig(cfg AppConfig) {
 	content := "# z13gui app configuration\ntheme = \"" + cfg.Theme + "\"\n"
 	if cfg.Accent != "" {
 		content += "accent = \"" + cfg.Accent + "\"\n"
+	}
+	if cfg.FollowSystem {
+		content += "follow_system = true\n"
+	}
+	for _, kv := range [][2]string{
+		{"light_theme", cfg.LightTheme}, {"light_accent", cfg.LightAccent},
+		{"dark_theme", cfg.DarkTheme}, {"dark_accent", cfg.DarkAccent},
+	} {
+		if kv[1] != "" {
+			content += kv[0] + " = \"" + kv[1] + "\"\n"
+		}
 	}
 	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(content), 0o644); err != nil {
 		slog.Warn("failed to write config", "err", err)

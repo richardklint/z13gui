@@ -3,7 +3,10 @@
 
 package theme
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestBuiltinsNotEmpty(t *testing.T) {
 	if len(Builtins) == 0 {
@@ -125,5 +128,37 @@ func TestDefaultColorsValid(t *testing.T) {
 		if !IsHexColor(pair.val) {
 			t.Errorf("DefaultColors.%s = %q is not a valid hex color", pair.name, pair.val)
 		}
+	}
+}
+
+func TestIsDark(t *testing.T) {
+	for _, b := range Builtins {
+		want := !strings.Contains(b.ID, "light") && b.ID != "catppuccin-latte" && b.ID != "rose-pine-dawn"
+		if got := IsDark(b.Colors); got != want {
+			t.Errorf("IsDark(%s) = %v, want %v", b.ID, got, want)
+		}
+	}
+}
+
+func TestOnePairAccentsMatch(t *testing.T) {
+	var dark, light []Accent
+	for _, b := range Builtins {
+		switch b.ID {
+		case "one-dark":
+			dark = b.Accents
+		case "one-light":
+			light = b.Accents
+		}
+	}
+	if len(dark) == 0 || len(dark) != len(light) {
+		t.Fatalf("One Dark/Light accents: %d vs %d", len(dark), len(light))
+	}
+	for i := range dark {
+		if dark[i].ID != light[i].ID {
+			t.Errorf("accent %d: %s vs %s", i, dark[i].ID, light[i].ID)
+		}
+	}
+	if BuiltinName("one-dark") != "One Dark" || BuiltinName("nope") != "nope" {
+		t.Error("BuiltinName")
 	}
 }

@@ -3,6 +3,12 @@
 
 package theme
 
+import (
+	"math"
+	"strconv"
+	"strings"
+)
+
 // Colors holds the 8 named color values that drive the entire GUI theme.
 // Each field is a CSS hex color string like "#cc0000".
 type Colors struct {
@@ -46,6 +52,28 @@ type Builtin struct {
 	Name    string // display name shown in the theme picker
 	Colors  Colors
 	Accents []Accent // optional accent variants; first = default (matches Colors.Accent)
+}
+
+// oneDarkAccents and oneLightAccents are the One palette's syntax colours, in
+// the same order so a light/dark pair offers matching choices.
+var oneDarkAccents = []Accent{
+	{ID: "blue", Name: "Blue", Hex: "#61afef"},
+	{ID: "purple", Name: "Purple", Hex: "#c678dd"},
+	{ID: "cyan", Name: "Cyan", Hex: "#56b6c2"},
+	{ID: "green", Name: "Green", Hex: "#98c379"},
+	{ID: "yellow", Name: "Yellow", Hex: "#e5c07b"},
+	{ID: "orange", Name: "Orange", Hex: "#d19a66"},
+	{ID: "red", Name: "Red", Hex: "#e06c75"},
+}
+
+var oneLightAccents = []Accent{
+	{ID: "blue", Name: "Blue", Hex: "#4078f2"},
+	{ID: "purple", Name: "Purple", Hex: "#a626a4"},
+	{ID: "cyan", Name: "Cyan", Hex: "#0184bc"},
+	{ID: "green", Name: "Green", Hex: "#50a14f"},
+	{ID: "yellow", Name: "Yellow", Hex: "#c18401"},
+	{ID: "orange", Name: "Orange", Hex: "#986801"},
+	{ID: "red", Name: "Red", Hex: "#e45649"},
 }
 
 // catppuccinMochaAccents lists all 14 official Catppuccin Mocha accent colors.
@@ -164,8 +192,17 @@ var Builtins = []Builtin{
 		Colors: Colors{Accent: "#88c0d0", Background: "#2e3440", Surface: "#3b4252", SurfaceAlt: "#434c5e", Text: "#eceff4", TextDim: "#d8dee9", Border: "#4c566a", Error: "#bf616a"},
 	},
 	{
+		// One Light's dark counterpart (Atom One Dark). TextDim is One Dark Pro's
+		// #7f848e rather than the original comment grey #5c6370, which is too
+		// faint for 12px labels on these surfaces.
+		ID: "one-dark", Name: "One Dark",
+		Colors:  Colors{Accent: "#61afef", Background: "#282c34", Surface: "#2f343f", SurfaceAlt: "#3e4451", Text: "#abb2bf", TextDim: "#7f848e", Border: "#3b4048", Error: "#e06c75"},
+		Accents: oneDarkAccents,
+	},
+	{
 		ID: "one-light", Name: "One Light",
-		Colors: Colors{Accent: "#4078f2", Background: "#fafafa", Surface: "#f0f0f0", SurfaceAlt: "#e5e5e6", Text: "#383a42", TextDim: "#696c77", Border: "#d0d0d0", Error: "#e45649"},
+		Colors:  Colors{Accent: "#4078f2", Background: "#fafafa", Surface: "#f0f0f0", SurfaceAlt: "#e5e5e6", Text: "#383a42", TextDim: "#696c77", Border: "#d0d0d0", Error: "#e45649"},
+		Accents: oneLightAccents,
 	},
 	{
 		ID: "rog-dark", Name: "ROG Dark",
@@ -215,4 +252,37 @@ func BuiltinAccentHex(themeID, accentID string) (string, bool) {
 		return "", false
 	}
 	return "", false
+}
+
+// IsDark reports whether a palette is a dark theme, from the relative
+// luminance of its background. Used to sort themes into the light and dark
+// slots when following the system appearance.
+func IsDark(c Colors) bool {
+	hex := strings.TrimPrefix(strings.TrimSpace(c.Background), "#")
+	if len(hex) < 6 {
+		return true
+	}
+	v, err := strconv.ParseUint(hex[:6], 16, 32)
+	if err != nil {
+		return true
+	}
+	lin := func(b uint64) float64 {
+		x := float64(b) / 255
+		if x <= 0.04045 {
+			return x / 12.92
+		}
+		return math.Pow((x+0.055)/1.055, 2.4)
+	}
+	l := 0.2126*lin(v>>16&0xff) + 0.7152*lin(v>>8&0xff) + 0.0722*lin(v&0xff)
+	return l < 0.4
+}
+
+// BuiltinName returns a built-in theme's display name, or id when unknown.
+func BuiltinName(id string) string {
+	for _, t := range Builtins {
+		if t.ID == id {
+			return t.Name
+		}
+	}
+	return id
 }

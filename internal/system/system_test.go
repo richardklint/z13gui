@@ -377,3 +377,19 @@ func TestReprobeDue(t *testing.T) {
 		t.Error("probed 30s ago: due")
 	}
 }
+
+func TestParseColorScheme(t *testing.T) {
+	for in, want := range map[string]uint32{"v u 1": 1, "v u 2": 2, "u 0": 0} {
+		if got, ok := ParseColorScheme(in); !ok || got != want {
+			t.Errorf("ParseColorScheme(%q) = %d %v", in, got, ok)
+		}
+	}
+	for _, bad := range []string{"", "v s dark", "v u x"} {
+		if _, ok := ParseColorScheme(bad); ok {
+			t.Errorf("ParseColorScheme(%q) should fail", bad)
+		}
+	}
+	if !SchemeIsDark(SchemeDark) || !SchemeIsDark(SchemeNoPreference) || SchemeIsDark(SchemeLight) {
+		t.Error("SchemeIsDark")
+	}
+}
