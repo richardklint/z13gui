@@ -33,11 +33,12 @@ const (
 )
 
 // RotationArg returns the kscreen-doctor argument for a rotation value
-// ("output.<name>.rotation.<arg>"), or "" for an unknown value.
+// ("output.<name>.rotation.<arg>"), or "" for an unknown value. Upright is
+// "none" — kscreen-doctor silently ignores "normal".
 func RotationArg(r int) string {
 	switch r {
 	case RotationNormal:
-		return "normal"
+		return "none"
 	case RotationLeft:
 		return "left"
 	case RotationInverted:
@@ -49,21 +50,23 @@ func RotationArg(r int) string {
 }
 
 // PolicyArg returns the kscreen-doctor argument for an auto-rotate policy
-// ("output.<name>.autorotate-policy.<arg>"), or "" for an unknown value.
+// ("output.<name>.autoRotatePolicy.<arg>"), or "" for an unknown value. The
+// spellings are kscreen-doctor's own and are not in its --help.
 func PolicyArg(p int) string {
 	switch p {
 	case PolicyNever:
 		return "never"
 	case PolicyInTabletMode:
-		return "in-tablet-mode"
+		return "inTabletMode"
 	case PolicyAlways:
 		return "always"
 	}
 	return ""
 }
 
-// PolicyFromArg is the inverse of PolicyArg. Unknown strings return
-// PolicyInTabletMode, the Plasma default for a convertible.
+// PolicyFromArg is the inverse of PolicyArg. Unknown strings (including the
+// "in-tablet-mode" spelling earlier builds saved) return PolicyInTabletMode,
+// the Plasma default for a convertible.
 func PolicyFromArg(s string) int {
 	switch s {
 	case "never":
@@ -207,4 +210,48 @@ func QuickRates(rates []Rate) []Rate {
 		return rates
 	}
 	return []Rate{rates[0], rates[len(rates)-1]}
+}
+
+// DisplayWant is a change to the panel. Zero fields are left alone: Policy and
+// Rotation use -1/0 as "unchanged" because 0 is a real policy (never).
+type DisplayWant struct {
+	Policy   int    // -1 = unchanged
+	Rotation int    // 0 = unchanged
+	ModeID   string // "" = unchanged
+}
+
+// KeepPolicy is DisplayWant.Policy's "leave it alone" value.
+const KeepPolicy = -1
+
+// KscreenArgs builds the kscreen-doctor arguments for want, applied in one
+// call so a rotate-and-lock is a single configuration change.
+func KscreenArgs(output string, want DisplayWant) []string {
+	var args []string
+	prefix := "output." + output + "."
+	if a := PolicyArg(want.Policy); want.Policy != KeepPolicy && a != "" {
+		args = append(args, prefix+"autoRotatePolicy."+a)
+	}
+	if a := RotationArg(want.Rotation); a != "" {
+		args = append(args, prefix+"rotation."+a)
+	}
+	if want.ModeID != "" {
+		args = append(args, prefix+"mode."+want.ModeID)
+	}
+	return args
+}
+
+// Applied reports whether d reflects want. kscreen-doctor exits 0 when it
+// rejects or ignores an argument, so reading the display back is the only way
+// to know a change took effect.
+func Applied(d Display, want DisplayWant) bool {
+	if want.Policy != KeepPolicy && d.Policy != want.Policy {
+		return false
+	}
+	if want.Rotation != 0 && d.Rotation != want.Rotation {
+		return false
+	}
+	if want.ModeID != "" && d.CurrentModeID != want.ModeID {
+		return false
+	}
+	return true
 }

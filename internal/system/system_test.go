@@ -80,7 +80,7 @@ func TestQuickRates(t *testing.T) {
 }
 
 func TestRotationAndPolicyArgs(t *testing.T) {
-	for r, want := range map[int]string{1: "normal", 2: "left", 4: "inverted", 8: "right", 3: ""} {
+	for r, want := range map[int]string{1: "none", 2: "left", 4: "inverted", 8: "right", 3: ""} {
 		if got := RotationArg(r); got != want {
 			t.Errorf("RotationArg(%d) = %q, want %q", r, got, want)
 		}
@@ -91,7 +91,10 @@ func TestRotationAndPolicyArgs(t *testing.T) {
 		}
 	}
 	if PolicyFromArg("bogus") != PolicyInTabletMode {
-		t.Error("unknown policy should default to in-tablet-mode")
+		t.Error("unknown policy should default to inTabletMode")
+	}
+	if PolicyArg(PolicyInTabletMode) != "inTabletMode" {
+		t.Error("kscreen-doctor only accepts inTabletMode")
 	}
 }
 
@@ -288,5 +291,42 @@ func TestParseSensors(t *testing.T) {
 	}
 	if c, ok := ParseMilliC("57750"); !ok || c != 58 {
 		t.Errorf("ParseMilliC = %v %v", c, ok)
+	}
+}
+
+func TestKscreenArgs(t *testing.T) {
+	got := KscreenArgs("eDP-1", DisplayWant{Policy: PolicyNever, Rotation: RotationLeft})
+	want := []string{"output.eDP-1.autoRotatePolicy.never", "output.eDP-1.rotation.left"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("KscreenArgs = %v, want %v", got, want)
+	}
+	got = KscreenArgs("eDP-1", DisplayWant{Policy: KeepPolicy, ModeID: "4"})
+	if !reflect.DeepEqual(got, []string{"output.eDP-1.mode.4"}) {
+		t.Errorf("mode only = %v", got)
+	}
+	if len(KscreenArgs("x", DisplayWant{Policy: KeepPolicy})) != 0 {
+		t.Error("no change should yield no args")
+	}
+}
+
+func TestApplied(t *testing.T) {
+	d := Display{Policy: PolicyNever, Rotation: RotationLeft, CurrentModeID: "1"}
+	if !Applied(d, DisplayWant{Policy: PolicyNever, Rotation: RotationLeft}) {
+		t.Error("matching display should count as applied")
+	}
+	if Applied(d, DisplayWant{Policy: PolicyInTabletMode}) {
+		t.Error("policy mismatch must not count as applied")
+	}
+	if Applied(d, DisplayWant{Policy: KeepPolicy, ModeID: "4"}) {
+		t.Error("mode mismatch must not count as applied")
+	}
+	if !Applied(d, DisplayWant{Policy: KeepPolicy}) {
+		t.Error("an empty want is trivially applied")
+	}
+}
+
+func TestParsePrefs_LegacyPolicy(t *testing.T) {
+	if p := ParsePrefs(`auto_rotate = "in-tablet-mode"`); p.AutoRotate != "inTabletMode" {
+		t.Errorf("legacy spelling = %q", p.AutoRotate)
 	}
 }

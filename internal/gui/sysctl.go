@@ -92,18 +92,40 @@ func readDisplay() (system.Display, error) {
 	return system.ParseKscreenJSON([]byte(out))
 }
 
-// kscreenSet applies "output.<name>.<setting>" changes in one kscreen-doctor
-// call, so a rotate-and-lock lands as a single configuration change.
-func kscreenSet(output string, settings ...string) error {
+// kscreenSet applies want to the panel and confirms it by reading the display
+// back. kscreen-doctor exits 0 even when it cannot parse or ignores an
+// argument (it prints "Unable to parse arguments" and carries on), so its exit
+// status says nothing; the read-back is the check. Returns the display as read.
+func kscreenSet(output string, want system.DisplayWant) (system.Display, error) {
 	if output == "" {
-		return errors.New("no display found")
+		return system.Display{}, errors.New("no display found")
 	}
-	args := make([]string, len(settings))
-	for i, s := range settings {
-		args[i] = "output." + output + "." + s
+	args := system.KscreenArgs(output, want)
+	if len(args) == 0 {
+		return readDisplay()
 	}
-	_, err := runCmd("kscreen-doctor", args...)
-	return err
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "kscreen-doctor", args...).CombinedOutput()
+	msg := firstLine(strings.TrimSpace(string(out)))
+	if err != nil {
+		return system.Display{}, fmt.Errorf("kscreen-doctor: %v %s", err, msg)
+	}
+	// KWin applies the configuration asynchronously; give it a moment.
+	var d system.Display
+	for i := 0; i < 5; i++ {
+		if d, err = readDisplay(); err == nil && system.Applied(d, want) {
+			return d, nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if err != nil {
+		return d, err
+	}
+	if msg == "" {
+		msg = "the change did not take effect"
+	}
+	return d, fmt.Errorf("kscreen-doctor: %s", msg)
 }
 
 // --- D-Bus via busctl (session bus) ---

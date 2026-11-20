@@ -420,7 +420,7 @@ var orientations = []struct {
 }
 
 var rotatePolicies = []struct{ arg, label string }{
-	{"in-tablet-mode", "Tablet mode"},
+	{"inTabletMode", "Tablet mode"},
 	{"always", "Always"},
 }
 

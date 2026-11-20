@@ -491,12 +491,12 @@ func (w *Window) setRates(rates []system.Rate, currentID string, currentHz int) 
 	w.rateBox.SetVisible(w.caps.kscreen && len(w.rates) > 1)
 }
 
-// kscreenApply runs settings against the panel in a goroutine, reports a
-// failure, and re-reads the display either way so the widgets show the truth.
-func (w *Window) kscreenApply(op string, settings ...string) {
+// kscreenApply applies want in a goroutine, reports a failure, and re-reads
+// the display either way so the widgets show the truth.
+func (w *Window) kscreenApply(op string, want system.DisplayWant) {
 	name := w.display.Name
 	go func() {
-		if err := kscreenSet(name, settings...); err != nil {
+		if _, err := kscreenSet(name, want); err != nil {
 			w.reportError(op, err)
 		} else {
 			w.clearErrorAsync()
@@ -513,25 +513,24 @@ func (w *Window) setRefresh(r system.Rate) {
 			b.RemoveCSSClass("active")
 		}
 	}
-	w.kscreenApply("Set refresh rate", "mode."+r.ModeID)
+	w.kscreenApply("Set refresh rate", system.DisplayWant{Policy: system.KeepPolicy, ModeID: r.ModeID})
 }
 
 func (w *Window) setRotationLock(on bool) {
-	arg := w.prefs.AutoRotate
+	pol := system.PolicyFromArg(w.prefs.AutoRotate)
 	if on {
-		arg = "never"
+		pol = system.PolicyNever
 	}
-	w.kscreenApply("Set rotation lock", "autorotate-policy."+arg)
+	w.kscreenApply("Set rotation lock", system.DisplayWant{Policy: pol})
 }
 
 // setOrientation rotates the panel and locks it there: with auto-rotate still
 // on, the sensor would undo the choice as soon as the device moved.
 func (w *Window) setOrientation(rot int) {
-	arg := system.RotationArg(rot)
-	if arg == "" {
+	if system.RotationArg(rot) == "" {
 		return
 	}
-	w.kscreenApply("Rotate display", "autorotate-policy.never", "rotation."+arg)
+	w.kscreenApply("Rotate display", system.DisplayWant{Policy: system.PolicyNever, Rotation: rot})
 }
 
 func (w *Window) setRotatePolicy(arg string) {
@@ -545,7 +544,7 @@ func (w *Window) setRotatePolicy(arg string) {
 		}
 	}
 	if !w.rotRow.sw.Active() {
-		w.kscreenApply("Set auto-rotate", "autorotate-policy."+arg)
+		w.kscreenApply("Set auto-rotate", system.DisplayWant{Policy: system.PolicyFromArg(arg)})
 	}
 }
 

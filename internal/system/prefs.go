@@ -27,7 +27,7 @@ type Prefs struct {
 	// persisted so a restart mid-charge still restores the limit.
 	PendingRestore bool
 	// AutoRotate is the auto-rotate policy applied when rotation is unlocked
-	// ("in-tablet-mode" or "always").
+	// ("inTabletMode" or "always", kscreen-doctor's spellings).
 	AutoRotate string
 	// Tab is the drawer tab shown last, reopened on the next start.
 	Tab string
@@ -38,7 +38,7 @@ func DefaultPrefs() Prefs {
 	return Prefs{
 		ChargeLimit:     DefaultLimit,
 		RestoreOnUnplug: true,
-		AutoRotate:      "in-tablet-mode",
+		AutoRotate:      "inTabletMode",
 		Tab:             "power",
 	}
 }
@@ -76,8 +76,11 @@ func ParsePrefs(data string) Prefs {
 				p.PendingRestore = b
 			}
 		case "auto_rotate":
-			if v == "always" || v == "in-tablet-mode" {
+			switch v {
+			case "always", "inTabletMode":
 				p.AutoRotate = v
+			case "in-tablet-mode": // spelling saved by earlier builds
+				p.AutoRotate = "inTabletMode"
 			}
 		case "tab":
 			if v == "power" || v == "lighting" || v == "display" {
