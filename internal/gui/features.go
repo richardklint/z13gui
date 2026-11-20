@@ -194,9 +194,11 @@ func (w *Window) applyPowerReadings(r powerReadings) {
 }
 
 func (w *Window) updateHeader() {
+	// Temperature and battery only: fan speed is on the Power tab's card,
+	// which is where it is useful.
 	s := ""
 	if w.state != nil {
-		s = fmt.Sprintf("%d°C · %d RPM", w.state.Temperature, w.state.FanRPM)
+		s = fmt.Sprintf("%d°C", w.state.Temperature)
 	}
 	if w.lastBatt != nil {
 		if s != "" {
