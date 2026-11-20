@@ -330,3 +330,32 @@ func TestParsePrefs_LegacyPolicy(t *testing.T) {
 		t.Errorf("legacy spelling = %q", p.AutoRotate)
 	}
 }
+
+func TestSnapStep(t *testing.T) {
+	up := func(v float64) float64 { return SnapStep(v, 5, 2, 1, 1, 100) }
+	down := func(v float64) float64 { return SnapStep(v, 5, 2, -1, 1, 100) }
+	cases := []struct {
+		name      string
+		got, want float64
+	}{
+		{"up from 7", up(7), 10},
+		{"up from 8", up(8), 10},
+		{"up from 9 skips 10", up(9), 15},
+		{"up from 10", up(10), 15},
+		{"up from 14 (rounded reading 14.2)", up(14.2), 20},
+		{"up clamps", up(99), 100},
+		{"up at max", up(100), 100},
+		{"down from 8", down(8), 5},
+		{"down from 7", down(7), 5},
+		{"down from 6 skips 5", down(6), 1},
+		{"down from 10", down(10), 5},
+		{"down from 11 skips 10", down(11), 5},
+		{"down clamps to 1", down(3), 1},
+		{"down at min", down(1), 1},
+	}
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)
+		}
+	}
+}

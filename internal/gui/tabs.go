@@ -448,9 +448,9 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	w.screenBright.SetHExpand(true)
 	w.screenBright.SetVAlign(gtk.AlignCenter)
 	w.brightDown = stepButton("−", "Brightness down 5%")
-	w.brightDown.ConnectClicked(func() { w.stepScreenBrightness(-brightnessStep) })
+	w.brightDown.ConnectClicked(func() { w.stepScreenBrightness(-1) })
 	w.brightUp = stepButton("+", "Brightness up 5%")
-	w.brightUp.ConnectClicked(func() { w.stepScreenBrightness(brightnessStep) })
+	w.brightUp.ConnectClicked(func() { w.stepScreenBrightness(1) })
 	slider := gtk.NewBox(gtk.OrientationHorizontal, 10)
 	slider.Append(w.brightDown)
 	slider.Append(w.screenBright)
@@ -553,8 +553,12 @@ func (w *Window) buildDisplayPage() *gtk.Box {
 	return page
 }
 
-// brightnessStep is the screen brightness change per −/+ tap, in percent.
-const brightnessStep = 5
+// brightnessStep is the grid the −/+ buttons snap to, in percent, and
+// brightnessMinMove the smallest change a tap makes (so 9 → 15, not 10).
+const (
+	brightnessStep    = 5
+	brightnessMinMove = 2
+)
 
 // stepButton is a square −/+ button beside a slider.
 func stepButton(label, tooltip string) *gtk.Button {

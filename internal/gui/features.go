@@ -391,18 +391,12 @@ func (w *Window) onScreenBrightness() {
 	})
 }
 
-// stepScreenBrightness nudges the slider by delta percent; the slider's own
+// stepScreenBrightness moves the slider to the next multiple of
+// brightnessStep in direction dir (see system.SnapStep); the slider's own
 // handler debounces and applies it, so a run of taps sends one change.
-func (w *Window) stepScreenBrightness(delta int) {
+func (w *Window) stepScreenBrightness(dir int) {
 	adj := w.screenBright.Adjustment()
-	v := adj.Value() + float64(delta)
-	if v < adj.Lower() {
-		v = adj.Lower()
-	}
-	if v > adj.Upper() {
-		v = adj.Upper()
-	}
-	adj.SetValue(v)
+	adj.SetValue(system.SnapStep(adj.Value(), brightnessStep, brightnessMinMove, dir, adj.Lower(), adj.Upper()))
 }
 
 func (w *Window) rereadDisplay() {
